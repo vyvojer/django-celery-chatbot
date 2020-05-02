@@ -1,4 +1,4 @@
 Django==3.0.5
 django-polymorphic==2.1.2
-
-
+pytz==2019.3
+sqlparse==0.3.0
