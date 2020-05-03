@@ -10,6 +10,14 @@ jobs:
       matrix:
         python-version: [3.6, 3.7, 3.8]
 
+    services:
+      redis:
+        image: postgres
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          # Opens tcp port 6379 on the host and service container
+          - 5432:5432
     steps:
     - uses: actions/checkout@v2
     - name: Set up Python ${{ matrix.python-version }}
@@ -24,3 +32,9 @@ jobs:
       run: |
         cd tests
         python manage.py test
+      env:
+        DB_NAME: postgres
+        DB_USER: postgres
+        DB_PASSWORD: postgres
+        DB_HOST: localhost
+        DB_PORT: 5432
