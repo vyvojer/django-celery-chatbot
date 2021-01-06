@@ -477,7 +477,8 @@ class MessageTestCase(TestCase):
         )
 
         incoming_message.reply(
-            text="Reply"
+            text="Reply",
+            reply=True,
         )
 
         mocked_send_message.assert_called_with(

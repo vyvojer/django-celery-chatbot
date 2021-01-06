@@ -6,6 +6,7 @@ from django_chatbot.models import Bot
 from django_chatbot.services.updates import save_update
 from django_chatbot.handlers import Handler
 
+
 @lru_cache()
 def load_handlers() -> Dict[str, List[Handler]]:
     handlers = {}
@@ -30,5 +31,3 @@ class Dispatcher:
             if handler.check_update(update=self.update):
                 handler.handle_update(update=self.update)
                 break
-
-

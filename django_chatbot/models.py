@@ -369,10 +369,10 @@ class Message(models.Model):
     def reply(self,
               text: str,
               parse_mode: str = None,
-              reply_to: bool = False,
+              reply: bool = False,
               **kwargs):
         chat = self.chat
-        if reply_to:
+        if reply:
             kwargs.update(
                 {"reply_to_message_id": self.message_id}
             )
