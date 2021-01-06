@@ -15,7 +15,6 @@ import os
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/2.2/howto/deployment/checklist/
 
@@ -25,8 +24,7 @@ SECRET_KEY = 'n7ce7)9v)0kx&$4p95td5m-(v96a&m*a52=2_x1vj$v4o)1#0n'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
-
+ALLOWED_HOSTS = ['*']
 
 # Application definition
 
@@ -37,8 +35,8 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'polymorphic',
     'django_chatbot',
+    'testproject',
     'testapp',
 ]
 
@@ -72,20 +70,25 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'testproject.wsgi.application'
 
-
 # Database
 # https://docs.djangoproject.com/en/2.2/ref/settings/#databases
 
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME':  os.environ.get('DB_NAME', 'chatbot'),
+        'NAME': os.environ.get('DB_NAME', 'chatbot'),
         'USER': os.environ.get('DB_USER', 'chatbot'),
         'PASSWORD': os.environ.get('DB_PASSWORD', 'chatbot'),
         'HOST': os.environ.get('DB_HOST', 'localhost'),
         'PORT': int(os.environ.get('DB_PORT', 5432)),
     }
 }
+
+
+# Django-chatbot
+
+CHATBOT_BROKER = os.environ.get("CHATBOT_BROKER", "redis://localhost:6379/0")
+CHATBOT_BACKEND = os.environ.get("CHATBOT_BACKEND", "redis://localhost:6379/1")
 
 # Password validation
 # https://docs.djangoproject.com/en/2.2/ref/settings/#auth-password-validators
@@ -105,7 +108,6 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-
 # Internationalization
 # https://docs.djangoproject.com/en/2.2/topics/i18n/
 
@@ -119,6 +121,55 @@ USE_L10N = True
 
 USE_TZ = True
 
+# django_chatbot
+
+DJANGO_CHATBOT = {
+    'WEBHOOK_DOMAIN': 'https://9f8efd705a2f.ngrok.io',
+    'BOTS': [
+        {
+            'NAME': "@VyvojerTestBot",
+            'TOKEN': "1349411992:AAHHkcn42Qv4Dx-SoqNalVHsI52XOsdUOyw",
+            'ROOT_HANDLERCONF': "testapp.handlers"
+        },
+    ]
+}
+
+# Logging
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{asctime} [{levelname}] [{filename}:{lineno} - {funcName}() ] {name}: {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'SysLog': {
+            'level': 'DEBUG',
+            'class': 'logging.handlers.SysLogHandler',
+            'formatter': 'verbose',
+            'address': ('logs6.papertrailapp.com', 12590)
+        },
+    },
+    'loggers': {
+        'testapp': {
+            'handlers': ['SysLog'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+        'django_chatbot': {
+            'handlers': ['SysLog'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+    },
+}
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/2.2/howto/static-files/

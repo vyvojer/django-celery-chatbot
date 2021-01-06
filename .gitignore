@@ -2,4 +2,4 @@ venv
 .idea
 __pycache__
 .envs
-db.sqlite3
+*.log
