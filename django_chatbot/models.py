@@ -9,8 +9,6 @@ from django.utils.functional import cached_property
 from django.utils.text import slugify
 
 from django_chatbot.telegram.api import Api, TelegramError
-from django_chatbot.telegram.types import Update as TelegramUpdate, \
-    MessageEntity
 from django_chatbot.telegram import types
 
 log = logging.getLogger(__name__)
@@ -359,7 +357,7 @@ class Message(models.Model):
 
     @cached_property
     def entities(self):
-        entities = [MessageEntity.from_dict(e) for e in self._entities]
+        entities = [types.MessageEntity.from_dict(e) for e in self._entities]
         for entity in entities:
             entity.text = self.text[
                           entity.offset: entity.offset + entity.length
@@ -381,3 +379,4 @@ class Message(models.Model):
             parse_mode=parse_mode,
             **kwargs,
         )
+        return message

@@ -378,7 +378,7 @@ class MessageManagerTestCase(TestCase):
         )
 
         found = Message.objects.get_message(
-            telegram_message = TelegramMessage(
+            telegram_message=TelegramMessage(
                 message_id=wanted.message_id,
                 date=timezone.datetime(1999, 12, 31, tzinfo=timezone.utc),
                 chat=TelegramChat(id=self.chat.chat_id, type="private"),
@@ -395,7 +395,7 @@ class MessageManagerTestCase(TestCase):
         )
 
         found = Message.objects.get_message(
-            telegram_message = TelegramMessage(
+            telegram_message=TelegramMessage(
                 message_id=wanted.message_id,
                 date=timezone.datetime(1999, 12, 31, tzinfo=timezone.utc),
                 chat=TelegramChat(id=999, type="private"),
@@ -403,9 +403,6 @@ class MessageManagerTestCase(TestCase):
         )
 
         self.assertEqual(found, None)
-
-
-
 
 
 class MessageTestCase(TestCase):
@@ -494,7 +491,8 @@ class MessageTestCase(TestCase):
 
         self.assertEqual(message.direction, Message.DIRECTION_OUT)
         self.assertEqual(message.message_id, 43)
-        self.assertEqual(message.date, timezone.datetime(1999, 12, 31, tzinfo=timezone.utc))
+        self.assertEqual(message.date,
+                         timezone.datetime(1999, 12, 31, tzinfo=timezone.utc))
         self.assertEqual(message.chat, chat)
         self.assertEqual(message.from_user, user)
         self.assertEqual(message.reply_to_message, incoming_message)

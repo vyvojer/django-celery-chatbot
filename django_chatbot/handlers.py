@@ -28,5 +28,3 @@ class Handler(ABC):
 class DefaultHandler(Handler):
     def check_update(self, update: Update) -> bool:
         return True
-
-

@@ -15,7 +15,9 @@ class Command(BaseCommand):
                 continue
             result = bot.get_webhook_info()
             if result["ok"]:
-                print(f"Webhook info was updated from telegram for {bot.name}.")
+                print(
+                    f"Webhook info was updated from telegram for {bot.name}."
+                )
             else:
                 print(f"Updating webhook info was failed for {bot.name}.")
                 print(result["result"])

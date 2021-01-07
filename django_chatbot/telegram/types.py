@@ -81,13 +81,13 @@ class TelegramType:
                 if issubclass(type(value), TelegramType):
                     d[key] = value.to_dict()
                 elif isinstance(value, list):
-                    l = []
+                    members = []
                     for member in value:
                         if issubclass(type(member), TelegramType):
-                            l.append(member.to_dict())
+                            members.append(member.to_dict())
                         else:
-                            l.append(member)
-                    d[key] = l
+                            members.append(member)
+                    d[key] = members
                 else:
                     d[key] = value
         return d
@@ -603,11 +603,6 @@ class Update(TelegramType):
 
     @property
     def effective_user(self) -> Optional[User]:
-        """
-        :class:`telegram.types.User`: The user that sent this update, no matter what kind of update this
-            is. Will be :obj:`None` for :attr:`channel_post` and :attr:`poll`.
-
-        """
         if self._effective_user:
             return self._effective_user
 
@@ -632,14 +627,6 @@ class Update(TelegramType):
 
     @property
     def effective_message(self) -> Optional[Message]:
-        """
-        :class:`telegram.Message`: The message included in this update, no matter what kind of
-            update this is. Will be :obj:`None` for :attr:`inline_query`,
-            :attr:`chosen_inline_result`, :attr:`callback_query` from inline messages,
-            :attr:`shipping_query`, :attr:`pre_checkout_query`, :attr:`poll` and
-            :attr:`poll_answer`.
-
-        """
         if self._effective_message:
             return self._effective_message
 

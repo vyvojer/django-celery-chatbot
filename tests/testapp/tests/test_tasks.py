@@ -4,6 +4,7 @@ from django.test import TestCase
 
 from django_chatbot import tasks
 
+
 class DispatchTestCase(TestCase):
     @patch("django_chatbot.tasks.Dispatcher")
     def test_task(self, mocked_dispatcher: Mock):
