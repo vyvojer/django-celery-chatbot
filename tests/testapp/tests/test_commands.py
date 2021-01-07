@@ -1,11 +1,8 @@
-from unittest import skip
-from unittest.mock import patch, Mock
-
-
 from django.core.management import call_command
 from django.test import TestCase, override_settings
 
 from django_chatbot.models import Bot
+
 
 class UpdateFromSettings(TestCase):
     chatbot_settings = {
@@ -39,10 +36,10 @@ class UpdateFromSettings(TestCase):
 
     @override_settings(DJANGO_CHATBOT=chatbot_settings)
     def test_command__update_bots(self):
-        bot1 = Bot.objects.create(
+        Bot.objects.create(
             name="@Bot1", token="bot-1-old-token", root_handlerconf="old.conf"
         )
-        bot2 = Bot.objects.create(
+        Bot.objects.create(
             name="@Bot2", token="bot-2-old-token", root_handlerconf="old.conf"
         )
 
@@ -56,6 +53,3 @@ class UpdateFromSettings(TestCase):
         self.assertEqual(bots[1].name, "@Bot2")
         self.assertEqual(bots[1].token, "bot-2-token")
         self.assertEqual(bots[1].root_handlerconf, "testapp.handlers")
-
-
-

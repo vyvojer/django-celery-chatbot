@@ -92,8 +92,8 @@ class UpdatesTestCase(TestCase):
     def test_save_update__creates_update(self):
         update = save_update(bot=self.bot, update_data=self.data)
 
-        user = User.objects.first()
-        chat = Chat.objects.first()
+        User.objects.first()
+        Chat.objects.first()
         message = Message.objects.first()
         self.assertEqual(Update.objects.first(), update)
         self.assertEqual(update.update_id, 708191904)
@@ -101,4 +101,3 @@ class UpdatesTestCase(TestCase):
         self.assertEqual(update.original, self.data)
         self.assertEqual(update.message, message)
         self.assertEqual(update.message_type, Update.MESSAGE_TYPE_MESSAGE)
-
