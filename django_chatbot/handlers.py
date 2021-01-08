@@ -33,7 +33,8 @@ log = logging.getLogger(__name__)
 
 
 class Handler(ABC):
-    def __init__(self, callback=None, async_callback=None):
+    def __init__(self, name: str, callback=None, async_callback=None):
+        self.name = name
         self.callback = callback
         self.async_callback = async_callback
 
@@ -42,6 +43,8 @@ class Handler(ABC):
         return False
 
     def handle_update(self, update: Update):
+        update.handler = self.name
+        update.save()
         if self.callback:
             log.debug("Before calling callback")
             self.callback(update)
@@ -52,3 +55,20 @@ class Handler(ABC):
 class DefaultHandler(Handler):
     def check_update(self, update: Update) -> bool:
         return True
+
+
+class CommandHandler(Handler):
+    def __init__(self, *args, command, **kwargs):
+        self.command = command
+        super().__init__(*args, **kwargs)
+
+    def check_update(self, update: Update) -> bool:
+        matches = False
+        message = update.message
+        if message and message.entities:
+            if [
+                entity for entity in message.entities
+                if entity.type == 'bot_command' and entity.text == self.command
+            ]:
+                matches = True
+        return matches

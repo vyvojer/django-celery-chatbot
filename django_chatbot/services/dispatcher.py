@@ -41,7 +41,7 @@ def load_handlers() -> Dict[str, List[Handler]]:
 
 def _load_bot_handlers(name: str) -> List[Handler]:
     module = importlib.import_module(name)
-    return module.handlers
+    return module.handlers  # noqa
 
 
 class Dispatcher:

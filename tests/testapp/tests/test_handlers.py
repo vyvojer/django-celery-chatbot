@@ -1,0 +1,96 @@
+# *****************************************************************************
+#  MIT License
+#
+#  Copyright (c) 2020 Alexey Londkevich <londkevich@gmail.com>
+#
+#  Permission is hereby granted, free of charge, to any person obtaining a copy
+#  of this software and associated documentation files (the "Software"),
+#  to deal in the Software without restriction, including without limitation
+#  the rights to use, copy, modify, merge, publish, distribute, sublicense,
+#  and/or sell copies of the Software, and to permit persons to whom
+#  the Software is furnished to do so, subject to the following conditions:
+#
+#  The above copyright notice and this permission notice shall be included
+#  in all copies or substantial portions of the Software.
+#
+#  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+#  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+#  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+#  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+#  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+#  ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR
+#  THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+# *****************************************************************************
+
+from django.test import TestCase
+from django.utils import timezone
+
+from django_chatbot.handlers import (
+    CommandHandler,
+    Handler
+)
+from django_chatbot.models import Bot, Chat, Message, Update
+
+
+class TestHandler(Handler):
+    def check_update(self, update: Update) -> bool:
+        return True
+
+
+class HandlerTest(TestCase):
+    def setUp(self) -> None:
+        bot = Bot.objects.create(name='bot', token='token')
+        self.update = Update.objects.create(bot=bot, update_id=1)
+
+    def test_handle_update__set_handler_name_if_matches(self):
+        handler = TestHandler(name="test")
+
+        handler.handle_update(self.update)
+
+        self.update.refresh_from_db()
+        self.assertEqual(self.update.handler, "test")
+
+
+class CommandHandlerTestCase(TestCase):
+    def setUp(self) -> None:
+        bot = Bot.objects.create(name='bot', token='token')
+        chat = Chat.objects.create(bot=bot, chat_id=1, type="private")
+        message = Message.objects.create(
+            message_id=1,
+            chat=chat,
+            date=timezone.datetime(2000, 1, 1, tzinfo=timezone.utc),
+            text='/start /help',
+            _entities=[
+                {
+                    'offset': 0,
+                    'length': 6,
+                    'type': 'bot_command'
+                },
+                {
+                    'offset': 7,
+                    'length': 5,
+                    'type': 'bot_command'
+                },
+            ]
+        )
+        self.update = Update.objects.create(
+            bot=bot,
+            update_id=1,
+            message=message,
+        )
+
+    def test_check_update__match(self):
+        handler = CommandHandler(
+            name="handler", command="/end"
+        )
+        self.assertEqual(handler.check_update(self.update), False)
+
+        handler = CommandHandler(
+            name="handler", command="/start"
+        )
+        self.assertEqual(handler.check_update(self.update), True)
+
+        handler = CommandHandler(
+            name="handler", command="/help"
+        )
+        self.assertEqual(handler.check_update(self.update), True)

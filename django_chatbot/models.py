@@ -180,6 +180,7 @@ class Update(models.Model):
     )
 
     bot = models.ForeignKey(Bot, on_delete=models.CASCADE)
+    handler = models.CharField(max_length=100, blank=True)
     update_id = models.BigIntegerField(unique=True, db_index=True)
     message_type = models.CharField(
         max_length=20, choices=MESSAGE_CHOICES, default=MESSAGE_TYPE_NONE
@@ -381,6 +382,8 @@ class Message(models.Model):
 
     @cached_property
     def entities(self):
+        if not self._entities:
+            return None
         entities = [types.MessageEntity.from_dict(e) for e in self._entities]
         for entity in entities:
             entity.text = self.text[
