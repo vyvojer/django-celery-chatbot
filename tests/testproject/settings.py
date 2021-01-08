@@ -124,7 +124,7 @@ USE_TZ = True
 # django_chatbot
 
 DJANGO_CHATBOT = {
-    'WEBHOOK_DOMAIN': 'https://9f8efd705a2f.ngrok.io',
+    'WEBHOOK_DOMAIN': 'https://0e605d59e3f5.ngrok.io',
     'BOTS': [
         {
             'NAME': "@VyvojerTestBot",

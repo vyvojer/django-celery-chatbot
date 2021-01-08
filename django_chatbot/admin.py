@@ -65,6 +65,7 @@ class UpdateAdmin(admin.ModelAdmin):
     list_display = [
         "bot",
         "update_id",
+        "handler",
         "message_type",
     ]
 
