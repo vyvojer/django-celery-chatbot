@@ -369,6 +369,7 @@ class Message(models.Model):
     # TODO    passport_data: PassportData = None
     # TODO    proximity_alert_triggered: ProximityAlertTriggered = None
     # TODO    reply_markup: InlineKeyboardMarkup = None
+    extra = models.JSONField(default=dict)
 
     objects = MessageManager()
 
@@ -407,3 +408,44 @@ class Message(models.Model):
             **kwargs,
         )
         return message
+
+    def init_form(self, form_class: type):
+        name = form_class.__name__
+        if 'form' not in self.extra:
+            self.extra.update(
+                {
+                    'form': {
+                        'fields': {},
+                        'completed': False,
+                        'name': name,
+                    }
+                }
+            )
+            self.save()
+
+    def get_form_root(self):
+        if self.direction == self.DIRECTION_OUT:
+            return None
+        try:
+            previous = self.get_previous_by_date(chat_id=self.chat_id)
+        except Message.DoesNotExist:
+            return None
+        if previous.extra.get('form') is not None:
+            return previous
+        if pk := previous.extra.get('form_root_pk'):
+            root = Message.objects.get(pk=pk)
+            return root
+
+    def get_form_fields(self):
+        return self.extra['form']['fields']
+
+    def update_form(self, fields: dict, completed: bool):
+        self.extra['form']['fields'] = fields
+        self.extra['form']['completed'] = completed
+        self.save()
+
+    def set_form_root(self, form_root: 'Message'):
+        self.extra.update(
+            {'form_root_pk': form_root.pk}
+        )
+        self.save()

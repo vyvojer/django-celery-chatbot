@@ -24,22 +24,43 @@
 
 import logging
 from abc import ABC, abstractmethod
+from typing import Callable, Optional, Type
 
 from celery import group
 
 from django_chatbot.models import Update
+from django_chatbot.forms import Form
 
 log = logging.getLogger(__name__)
 
 
 class Handler(ABC):
-    def __init__(self, name: str, callback=None, async_callback=None):
+    def __init__(self,
+                 name: str,
+                 callback: Optional[Callable[[Update], None]] = None,
+                 async_callback=None,
+                 form_class: Type[Form] = None):
         self.name = name
         self.callback = callback
         self.async_callback = async_callback
+        self.form_class = form_class
+
+    def match(self, update: Update) -> bool:
+        if match := self._match(update):
+            return match
+        if self.form_class:
+            match = self._form_match(update)
+        return match
+
+    def _form_match(self, update: Update) -> bool:
+        match = False
+        if form_root := update.message.get_form_root():
+            if form_root.extra['form']['name'] == self.form_class.__name__:
+                match = True
+        return match
 
     @abstractmethod
-    def check_update(self, update: Update) -> bool:
+    def _match(self, update: Update) -> bool:
         return False
 
     def handle_update(self, update: Update):
@@ -50,10 +71,12 @@ class Handler(ABC):
             self.callback(update)
         elif self.async_callback:
             group(self.async_callback.signature(update.id)).delay()
+        elif self.form_class:
+            self.form_class(update)
 
 
 class DefaultHandler(Handler):
-    def check_update(self, update: Update) -> bool:
+    def _match(self, update: Update) -> bool:
         return True
 
 
@@ -62,13 +85,13 @@ class CommandHandler(Handler):
         self.command = command
         super().__init__(*args, **kwargs)
 
-    def check_update(self, update: Update) -> bool:
-        matches = False
+    def _match(self, update: Update) -> bool:
+        match = False
         message = update.message
         if message and message.entities:
             if [
                 entity for entity in message.entities
                 if entity.type == 'bot_command' and entity.text == self.command
             ]:
-                matches = True
-        return matches
+                match = True
+        return match

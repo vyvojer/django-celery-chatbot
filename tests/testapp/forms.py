@@ -21,37 +21,24 @@
 #  ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR
 #  THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 # *****************************************************************************
+import logging
 
-import importlib
-from functools import lru_cache
-from typing import Dict, List
+from django_chatbot.forms import CharField, Form
 
-from django_chatbot.models import Bot
-from django_chatbot.services.updates import save_update
-from django_chatbot.handlers import Handler
+from .models import Note
 
-
-@lru_cache()
-def load_handlers() -> Dict[str, List[Handler]]:
-    handlers = {}
-    for bot in Bot.objects.all():
-        handlers[bot.token_slug] = _load_bot_handlers(bot.root_handlerconf)
-    return handlers
+log = logging.getLogger(__name__)
 
 
-def _load_bot_handlers(name: str) -> List[Handler]:
-    module = importlib.import_module(name)
-    return module.handlers  # noqa
+class NoteForm(Form):
+    fields = [
+        CharField(name="title", label="Input title:"),
+        CharField(name="text", label="Input text:"),
+    ]
 
-
-class Dispatcher:
-    def __init__(self, update_data: dict, token_slug: str):
-        self.bot = Bot.objects.get(token_slug=token_slug)
-        self.update = save_update(bot=self.bot, update_data=update_data)
-        self.handlers = load_handlers()
-
-    def dispatch(self):
-        for handler in self.handlers[self.bot.token_slug]:
-            if handler.match(update=self.update):
-                handler.handle_update(update=self.update)
-                break
+    def on_complete(self):
+        user = self.message.from_user
+        title = self.get_field("title")
+        text = self.get_field("text")
+        Note.objects.create(user=user, title=title.value, text=text.value)
+        self.message.reply("Success! Note added.")

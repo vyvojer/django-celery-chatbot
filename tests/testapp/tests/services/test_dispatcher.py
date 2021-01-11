@@ -103,9 +103,9 @@ class DispatcherTestCase(TestCase):
     ):
         update = Mock()
         mocked_save_update.return_value = update
-        handler_1 = Mock(**{'check_update.return_value': False})
-        handler_2 = Mock(**{'check_update.return_value': True})
-        handler_3 = Mock(**{'check_update.return_value': True})
+        handler_1 = Mock(**{'match.return_value': False})
+        handler_2 = Mock(**{'match.return_value': True})
+        handler_3 = Mock(**{'match.return_value': True})
         mocked_load_handlers.return_value = {
             'token1': [handler_3],
             'token2': [handler_1, handler_2, handler_3],
@@ -114,9 +114,9 @@ class DispatcherTestCase(TestCase):
 
         dispatcher.dispatch()
 
-        handler_1.check_update.assert_called_with(update=update)
-        handler_2.check_update.assert_called_with(update=update)
-        handler_3.check_update.assert_not_called()
+        handler_1.match.assert_called_with(update=update)
+        handler_2.match.assert_called_with(update=update)
+        handler_3.match.assert_not_called()
         handler_1.handle_update.assert_not_called()
         handler_2.handle_update.assert_called_with(update=update)
         handler_3.handle_update.assert_not_called()

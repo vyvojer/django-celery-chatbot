@@ -22,36 +22,11 @@
 #  THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 # *****************************************************************************
 
-import importlib
-from functools import lru_cache
-from typing import Dict, List
-
-from django_chatbot.models import Bot
-from django_chatbot.services.updates import save_update
-from django_chatbot.handlers import Handler
+from django.db import models
+from django_chatbot.models import User as TelegramUser
 
 
-@lru_cache()
-def load_handlers() -> Dict[str, List[Handler]]:
-    handlers = {}
-    for bot in Bot.objects.all():
-        handlers[bot.token_slug] = _load_bot_handlers(bot.root_handlerconf)
-    return handlers
-
-
-def _load_bot_handlers(name: str) -> List[Handler]:
-    module = importlib.import_module(name)
-    return module.handlers  # noqa
-
-
-class Dispatcher:
-    def __init__(self, update_data: dict, token_slug: str):
-        self.bot = Bot.objects.get(token_slug=token_slug)
-        self.update = save_update(bot=self.bot, update_data=update_data)
-        self.handlers = load_handlers()
-
-    def dispatch(self):
-        for handler in self.handlers[self.bot.token_slug]:
-            if handler.match(update=self.update):
-                handler.handle_update(update=self.update)
-                break
+class Note(models.Model):
+    user = models.ForeignKey(TelegramUser, on_delete=models.CASCADE)
+    title = models.CharField(max_length=100, default="")
+    text = models.TextField(default="")
