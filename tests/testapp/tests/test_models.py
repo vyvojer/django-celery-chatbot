@@ -497,3 +497,156 @@ class MessageTestCase(TestCase):
         self.assertEqual(message.from_user, user)
         self.assertEqual(message.reply_to_message, incoming_message)
         self.assertEqual(incoming_message.reply_message, message)
+
+    def test_init_form(self):
+        bot = Bot.objects.create(name='bot', token='token')
+        chat = Chat.objects.create(bot=bot, chat_id=1, type='private')
+        message = Message.objects.create(
+            message_id=1,
+            chat=chat,
+            date=timezone.datetime(2000, 1, 1, tzinfo=timezone.utc)
+        )
+
+        class DummyForm:
+            pass
+
+        message.init_form(form_class=DummyForm)
+
+        message.refresh_from_db()
+        self.assertEqual(
+            message.extra.get('form'),
+            {
+                'name': 'DummyForm',
+                'fields': {},
+                'completed': False,
+            }
+        )
+
+    def test_get_form_root__out_message(self):
+        bot = Bot.objects.create(name='bot', token='token')
+        chat = Chat.objects.create(bot=bot, chat_id=1, type='private')
+        root_message = Message.objects.create(
+            direction=Message.DIRECTION_OUT,
+            message_id=1,
+            chat=chat,
+            date=timezone.datetime(2000, 1, 1, tzinfo=timezone.utc),
+            extra={'form': {}},
+        )
+
+        self.assertEqual(root_message.get_form_root(), None)
+
+    def test_get_form_root__root_answer(self):
+        bot = Bot.objects.create(name='bot', token='token')
+        chat = Chat.objects.create(bot=bot, chat_id=1, type='private')
+        root_message = Message.objects.create(
+            direction=Message.DIRECTION_OUT,
+            message_id=1,
+            chat=chat,
+            date=timezone.datetime(2000, 1, 1, tzinfo=timezone.utc),
+            extra={'form': {}},
+            text="Question 1"
+        )
+
+        answer = Message.objects.create(
+            direction=Message.DIRECTION_IN,
+            message_id=2,
+            chat=chat,
+            date=timezone.datetime(2000, 1, 1, 1, tzinfo=timezone.utc),
+            reply_to_message=root_message,
+            text="Answer 1"
+        )
+        root = answer.get_form_root()
+        self.assertEqual(root, root_message)
+
+    def test_get_form_root__not_root_answer(self):
+        bot = Bot.objects.create(name='bot', token='token')
+        chat = Chat.objects.create(bot=bot, chat_id=1, type='private')
+        root_prompt = Message.objects.create(
+            direction=Message.DIRECTION_OUT,
+            message_id=1,
+            chat=chat,
+            date=timezone.datetime(2000, 1, 1, tzinfo=timezone.utc),
+            extra={'form': {}},
+            text="Question 1"
+        )
+        Message.objects.create(
+            direction=Message.DIRECTION_IN,
+            message_id=2,
+            chat=chat,
+            date=timezone.datetime(2000, 1, 1, 1, tzinfo=timezone.utc),
+            reply_to_message=root_prompt,
+            text="Answer 1"
+        )
+        prompt_2 = Message.objects.create(
+            direction=Message.DIRECTION_OUT,
+            message_id=3,
+            chat=chat,
+            date=timezone.datetime(2000, 1, 1, 2, tzinfo=timezone.utc),
+            extra={'form_root_pk': root_prompt.pk},
+            text="Question 2"
+        )
+        input_2 = Message.objects.create(
+            direction=Message.DIRECTION_IN,
+            message_id=4,
+            chat=chat,
+            date=timezone.datetime(2000, 1, 1, 3, tzinfo=timezone.utc),
+            reply_to_message=prompt_2,
+            text="Answer 1"
+        )
+        root = input_2.get_form_root()
+        self.assertEqual(root, root_prompt)
+
+    def test_get_form_fields(self):
+        message = Message(
+            extra={
+                'form': {
+                    'fields': {'first': 1, 'second': 2}
+                }
+            }
+        )
+
+        fields = message.get_form_fields()
+
+        self.assertEqual(fields, {'first': 1, 'second': 2})
+
+    def test_update_form(self):
+        bot = Bot.objects.create(name='bot', token='token')
+        chat = Chat.objects.create(bot=bot, chat_id=1, type='private')
+        message = Message.objects.create(
+            direction=Message.DIRECTION_OUT,
+            message_id=1,
+            chat=chat,
+            date=timezone.datetime(2000, 1, 1, tzinfo=timezone.utc),
+            extra={'form': {}},
+            text="Question 1"
+        )
+
+        message.update_form(fields={'first': 1}, completed=True)
+
+        message.refresh_from_db()
+        self.assertEqual(
+            message.extra['form'],
+            {
+                'fields': {'first': 1},
+                'completed': True,
+            }
+        )
+
+    def test_set_root(self):
+        bot = Bot.objects.create(name='bot', token='token')
+        chat = Chat.objects.create(bot=bot, chat_id=1, type='private')
+        message1 = Message.objects.create(
+            message_id=1,
+            chat=chat,
+            date=timezone.datetime(2000, 1, 1, tzinfo=timezone.utc),
+        )
+        message2 = Message.objects.create(
+            message_id=2,
+            chat=chat,
+            date=timezone.datetime(2000, 1, 1, tzinfo=timezone.utc),
+        )
+
+        message2.set_form_root(form_root=message1)
+
+        message2.refresh_from_db()
+        self.assertEqual(message2.extra, {'form_root_pk': message1.pk})

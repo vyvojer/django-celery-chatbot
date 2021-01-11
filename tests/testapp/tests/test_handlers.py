@@ -30,25 +30,65 @@ from django_chatbot.handlers import (
     Handler
 )
 from django_chatbot.models import Bot, Chat, Message, Update
-
-
-class TestHandler(Handler):
-    def check_update(self, update: Update) -> bool:
-        return True
+from django_chatbot.forms import Form
 
 
 class HandlerTest(TestCase):
-    def setUp(self) -> None:
+    def test_handle_update__set_handler_name_if_matches(self):
         bot = Bot.objects.create(name='bot', token='token')
         self.update = Update.objects.create(bot=bot, update_id=1)
 
-    def test_handle_update__set_handler_name_if_matches(self):
+        class TestHandler(Handler):
+            def _match(self, update: Update) -> bool:
+                return True
+
         handler = TestHandler(name="test")
 
         handler.handle_update(self.update)
 
         self.update.refresh_from_db()
         self.assertEqual(self.update.handler, "test")
+
+    def test_form_match(self):
+        class TestHandler(Handler):
+            def _match(self, update: Update) -> bool:
+                return False
+
+        class TestForm(Form):
+            def on_complete(self):
+                pass
+
+        handler = TestHandler(name="handler", form_class=TestForm)
+        bot = Bot.objects.create(name='bot', token='token')
+        chat = Chat.objects.create(bot=bot, chat_id=1, type="private")
+        Message.objects.create(
+            message_id=2,
+            direction=Message.DIRECTION_OUT,
+            date=timezone.datetime(2000, 1, 1, 2, tzinfo=timezone.utc),
+            chat=chat,
+            text='Enter first field:',
+            extra={
+                'form': {
+                    'name': 'TestForm',
+                    'fields': {},
+                    'completed': False,
+                }
+            }
+        )
+        first_input = Message.objects.create(
+            direction=Message.DIRECTION_IN,
+            message_id=3,
+            date=timezone.datetime(2000, 1, 1, 3, tzinfo=timezone.utc),
+            chat=chat,
+            text='41',
+        )
+        update = Update.objects.create(
+            bot=bot,
+            update_id=1,
+            message=first_input,
+        )
+
+        self.assertTrue(handler._form_match(update))
 
 
 class CommandHandlerTestCase(TestCase):
@@ -79,18 +119,18 @@ class CommandHandlerTestCase(TestCase):
             message=message,
         )
 
-    def test_check_update__match(self):
+    def test_match(self):
         handler = CommandHandler(
             name="handler", command="/end"
         )
-        self.assertEqual(handler.check_update(self.update), False)
+        self.assertEqual(handler.match(self.update), False)
 
         handler = CommandHandler(
             name="handler", command="/start"
         )
-        self.assertEqual(handler.check_update(self.update), True)
+        self.assertEqual(handler.match(self.update), True)
 
         handler = CommandHandler(
             name="handler", command="/help"
         )
-        self.assertEqual(handler.check_update(self.update), True)
+        self.assertEqual(handler.match(self.update), True)
