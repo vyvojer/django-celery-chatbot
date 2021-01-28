@@ -30,7 +30,7 @@ from typing import Dict, List
 from django_chatbot.models import Bot, Update
 from django_chatbot.handlers import Handler
 from django_chatbot.telegram.types import Update as TelegramUpdate
-from services.forms import get_form
+from django_chatbot.services.forms import get_form
 
 log = logging.getLogger(__name__)
 
