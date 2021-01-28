@@ -125,11 +125,13 @@ USE_TZ = True
 # django_chatbot
 
 DJANGO_CHATBOT = {
-    'WEBHOOK_DOMAIN': config('CHATBOT_WEBHOOK_DOMAIN'),
+    'WEBHOOK_DOMAIN': config(
+        'CHATBOT_WEBHOOK_DOMAIN', default='https//xxx.ngrok.io'
+    ),
     'BOTS': [
         {
-            'NAME': config('CHATBOT_NAME'),
-            'TOKEN': config('CHATBOT_TOKEN'),
+            'NAME': config('CHATBOT_NAME', default='@BotnameBot'),
+            'TOKEN': config('CHATBOT_TOKEN', default='xxxx:bot-token'),
             'ROOT_HANDLERCONF': "testapp.handlers"
         },
     ]
