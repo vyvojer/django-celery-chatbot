@@ -17,7 +17,7 @@ Command list:
 /add - add note
 /delete - delete note
 /count - count notes    
-""")
+""") # noqa
 
 
 def count(update: Update):
