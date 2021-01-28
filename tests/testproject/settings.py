@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/2.2/ref/settings/
 """
 
 import os
+from decouple import config
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -19,7 +20,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # See https://docs.djangoproject.com/en/2.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'n7ce7)9v)0kx&$4p95td5m-(v96a&m*a52=2_x1vj$v4o)1#0n'
+SECRET_KEY = config('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -76,19 +77,19 @@ WSGI_APPLICATION = 'testproject.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.environ.get('DB_NAME', 'chatbot'),
-        'USER': os.environ.get('DB_USER', 'chatbot'),
-        'PASSWORD': os.environ.get('DB_PASSWORD', 'chatbot'),
-        'HOST': os.environ.get('DB_HOST', 'localhost'),
-        'PORT': int(os.environ.get('DB_PORT', 5432)),
+        'NAME': config('DB_NAME', default='chatbot'),
+        'USER': config('DB_USER', default='chatbot'),
+        'PASSWORD': config('DB_PASSWORD', default='chatbot'),
+        'HOST': config('DB_HOST', default='localhost'),
+        'PORT': config('DB_PORT', default=5432, cast=int),
     }
 }
 
 
 # Django-chatbot
 
-CHATBOT_BROKER = os.environ.get("CHATBOT_BROKER", "redis://localhost:6379/0")
-CHATBOT_BACKEND = os.environ.get("CHATBOT_BACKEND", "redis://localhost:6379/1")
+CHATBOT_BROKER = config("CHATBOT_BROKER", default="redis://localhost:6379/0")
+CHATBOT_BACKEND = config("CHATBOT_BACKEND", default="redis://localhost:6379/1")
 
 # Password validation
 # https://docs.djangoproject.com/en/2.2/ref/settings/#auth-password-validators
@@ -124,11 +125,13 @@ USE_TZ = True
 # django_chatbot
 
 DJANGO_CHATBOT = {
-    'WEBHOOK_DOMAIN': 'https://84efd43cf1fc.ngrok.io',
+    'WEBHOOK_DOMAIN': config(
+        'CHATBOT_WEBHOOK_DOMAIN', default='https//xxx.ngrok.io'
+    ),
     'BOTS': [
         {
-            'NAME': "@VyvojerTestBot",
-            'TOKEN': "1349411992:AAHHkcn42Qv4Dx-SoqNalVHsI52XOsdUOyw",
+            'NAME': config('CHATBOT_NAME', default='@BotnameBot'),
+            'TOKEN': config('CHATBOT_TOKEN', default='xxxx:bot-token'),
             'ROOT_HANDLERCONF': "testapp.handlers"
         },
     ]
