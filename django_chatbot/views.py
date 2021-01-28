@@ -26,6 +26,7 @@ import json
 import logging
 
 from django.http import JsonResponse, HttpRequest
+from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_exempt
 
 from django_chatbot.tasks import dispatch
@@ -34,6 +35,7 @@ log = logging.getLogger(__name__)
 
 
 @csrf_exempt
+@never_cache
 def webhook(request: HttpRequest, token_slug):
     update_data = json.loads(request.body)
     dispatch.delay(update_data=update_data, token_slug=token_slug)

@@ -23,7 +23,7 @@
 # *****************************************************************************
 
 import logging
-from typing import List
+from typing import List, Optional
 
 from django.conf import settings
 from django.db import models
@@ -165,31 +165,27 @@ class User(models.Model):
             return self.user_id
 
 
-class Update(models.Model):
-    MESSAGE_TYPE_NONE = "none"
-    MESSAGE_TYPE_MESSAGE = "message"
-    MESSAGE_TYPE_EDITED_MESSAGE = "edited_message"
-    MESSAGE_TYPE_CHANNEL_POST = "channel_post"
-    MESSAGE_TYPE_EDITED_CHANNEL_POST = "edited_channel_post"
-    MESSAGE_CHOICES = (
-        (MESSAGE_TYPE_NONE, "-"),
-        (MESSAGE_TYPE_MESSAGE, "Message"),
-        (MESSAGE_TYPE_EDITED_MESSAGE, "Edited message"),
-        (MESSAGE_TYPE_CHANNEL_POST, "Channel post"),
-        (MESSAGE_TYPE_EDITED_CHANNEL_POST, "Edited channel post"),
-    )
-
-    bot = models.ForeignKey(Bot, on_delete=models.CASCADE)
-    handler = models.CharField(max_length=100, blank=True)
-    update_id = models.BigIntegerField(unique=True, db_index=True)
-    message_type = models.CharField(
-        max_length=20, choices=MESSAGE_CHOICES, default=MESSAGE_TYPE_NONE
-    )
-    message = models.OneToOneField(
-        'Message', null=True, blank=True, on_delete=models.SET_NULL,
-        related_name="update"
-    )
-    original = models.JSONField(blank=True, null=True)
+class ChatManager(models.Manager):
+    def from_telegram(self,
+                      bot: Bot,
+                      telegram_chat: types.Chat):
+        defaults = telegram_chat.to_dict()
+        defaults['bot'] = bot
+        if telegram_chat.photo:
+            defaults['_photo'] = defaults['photo']
+            defaults.pop('photo')
+        if telegram_chat.permissions:
+            defaults['_permissions'] = defaults['permissions']
+            defaults.pop('permissions')
+        if telegram_chat.photo:
+            defaults['_location'] = defaults['location']
+            defaults.pop('location')
+        defaults.pop('id')
+        chat, _ = self.update_or_create(
+            chat_id=telegram_chat.id,
+            defaults=defaults
+        )
+        return chat
 
 
 class Chat(models.Model):
@@ -200,7 +196,7 @@ class Chat(models.Model):
     username = models.CharField(max_length=255, blank=True)
     first_name = models.CharField(max_length=255, blank=True)
     last_name = models.CharField(max_length=255, blank=True)
-    photo = models.JSONField(blank=True, null=True)
+    _photo = models.JSONField(blank=True, null=True)
     bio = models.CharField(max_length=255, blank=True)
     description = models.TextField(blank=True)
     invite_link = models.CharField(max_length=255, blank=True)
@@ -208,12 +204,14 @@ class Chat(models.Model):
         'Message', null=True, blank=True, on_delete=models.SET_NULL,
         related_name="pinned_to_chats"
     )
-    permissions = models.JSONField(blank=True, null=True)
+    _permissions = models.JSONField(blank=True, null=True)
     slow_mode_delay = models.IntegerField(null=True, blank=True)
     sticker_set_name = models.CharField(max_length=255, blank=True)
     can_set_sticker_set = models.BooleanField(default=False)
     linked_chat_id = models.BigIntegerField(null=True, blank=True)
-    location = models.JSONField(blank=True, null=True)
+    _location = models.JSONField(blank=True, null=True)
+
+    objects = ChatManager()
 
     def __str__(self):
         if self.username:
@@ -221,12 +219,26 @@ class Chat(models.Model):
         else:
             return self.chat_id
 
+    @cached_property
+    def photo(self) -> Optional[types.ChatPhoto]:
+        if self._photo:
+            return types.ChatPhoto.from_dict(self._photo)  # noqa
+
+    @cached_property
+    def permissions(self) -> Optional[types.ChatPermissions]:
+        if self._permissions:
+            return types.ChatPermissions.from_dict(self._permissions)  # noqa
+
+    @cached_property
+    def location(self) -> Optional[types.ChatLocation]:
+        if self._location:
+            return types.ChatLocation.from_dict(self._location)  # noqa
+
     def reply(self,
               text: str,
               parse_mode: str = None,
               **kwargs):
         api = self.bot.api
-        # TODO: add error handling
         telegram_message = api.send_message(
             chat_id=self.chat_id,
             text=text,
@@ -238,27 +250,36 @@ class Chat(models.Model):
             user = User.objects.from_telegram(telegram_user=user)
 
         message = Message.objects.from_telegram(
+            bot=self.bot,
             telegram_message=telegram_message,
             direction=Message.DIRECTION_OUT,
-            chat=self,
-            user=user,
         )
         return message
 
 
 class MessageManager(models.Manager):
     def from_telegram(self,
+                      bot: Bot,
                       telegram_message: types.Message,
-                      direction: str,
-                      chat: Chat,
-                      user: User = None):
+                      direction: str):
         defaults = telegram_message.to_dict()
         defaults['direction'] = direction
         if telegram_message.entities:
             defaults['_entities'] = defaults['entities']
             defaults.pop('entities')
+        if telegram_message.animation:
+            defaults['_animation'] = defaults['animation']
+            defaults.pop('animation')
+        if telegram_message.reply_markup:
+            defaults['_reply_markup'] = defaults['reply_markup']
+            defaults.pop('reply_markup')
+
+        chat = Chat.objects.from_telegram(
+            bot=bot, telegram_chat=telegram_message.chat
+        )
         defaults['chat'] = chat
-        if user:
+        if telegram_message.from_user:
+            user = User.objects.from_telegram(telegram_message.from_user)
             defaults['from_user'] = user
         if telegram_message.reply_to_message:
             defaults['reply_to_message'] = self.get_message(
@@ -330,7 +351,7 @@ class Message(models.Model):
     author_signature = models.CharField(max_length=255, blank=True)
     text = models.TextField(blank=True)
     _entities = models.JSONField(blank=True, null=True)
-    # TODO    animation: Animation = None
+    _animation = models.JSONField(blank=True, null=True)
     # TODO    audio: Audio = None
     # TODO    document: Document = None
     # TODO     photo: List[PhotoSize] = None
@@ -368,7 +389,7 @@ class Message(models.Model):
 
     # TODO    passport_data: PassportData = None
     # TODO    proximity_alert_triggered: ProximityAlertTriggered = None
-    # TODO    reply_markup: InlineKeyboardMarkup = None
+    _reply_markup = models.JSONField(blank=True, null=True)
     extra = models.JSONField(default=dict)
 
     objects = MessageManager()
@@ -385,12 +406,21 @@ class Message(models.Model):
     def entities(self):
         if not self._entities:
             return None
-        entities = [types.MessageEntity.from_dict(e) for e in self._entities]
+        entities = [types.MessageEntity.from_dict(e) for e in
+                    self._entities]  # noqa
         for entity in entities:
             entity.text = self.text[
                           entity.offset: entity.offset + entity.length
                           ]
         return entities
+
+    @cached_property
+    def animation(self) -> types.Animation:
+        return types.Animation.from_dict(self._animation)
+
+    @cached_property
+    def reply_markup(self) -> types.InlineKeyboardMarkup:
+        return types.InlineKeyboardMarkup.from_dict(self._reply_markup)
 
     def reply(self,
               text: str,
@@ -409,43 +439,125 @@ class Message(models.Model):
         )
         return message
 
-    def init_form(self, form_class: type):
-        name = form_class.__name__
-        if 'form' not in self.extra:
-            self.extra.update(
-                {
-                    'form': {
-                        'fields': {},
-                        'completed': False,
-                        'name': name,
-                    }
-                }
+
+class CallbackQueryManager(models.Manager):
+    def from_telegram(self,
+                      bot: Bot,
+                      telegram_callback_query: types.CallbackQuery):
+        defaults = telegram_callback_query.to_dict()
+        defaults.pop('id')
+        user = User.objects.from_telegram(telegram_callback_query.from_user)
+        defaults['from_user'] = user
+        if telegram_callback_query.message:
+            message = Message.objects.from_telegram(
+                bot=bot,
+                telegram_message=telegram_callback_query.message,
+                direction=Message.DIRECTION_IN,
             )
-            self.save()
-
-    def get_form_root(self):
-        if self.direction == self.DIRECTION_OUT:
-            return None
-        try:
-            previous = self.get_previous_by_date(chat_id=self.chat_id)
-        except Message.DoesNotExist:
-            return None
-        if previous.extra.get('form') is not None:
-            return previous
-        if pk := previous.extra.get('form_root_pk'):
-            root = Message.objects.get(pk=pk)
-            return root
-
-    def get_form_fields(self):
-        return self.extra['form']['fields']
-
-    def update_form(self, fields: dict, completed: bool):
-        self.extra['form']['fields'] = fields
-        self.extra['form']['completed'] = completed
-        self.save()
-
-    def set_form_root(self, form_root: 'Message'):
-        self.extra.update(
-            {'form_root_pk': form_root.pk}
+            defaults['message'] = message
+        update, _ = self.update_or_create(
+            callback_query_id=telegram_callback_query.id,
+            defaults=defaults
         )
-        self.save()
+        return update
+
+
+class CallbackQuery(models.Model):
+    callback_query_id = models.CharField(max_length=100)
+    from_user = models.ForeignKey(User, on_delete=models.CASCADE)
+    chat_instance = models.CharField(max_length=100)
+    message = models.ForeignKey(
+        Message, on_delete=models.SET_NULL, null=True, blank=True
+    )
+    inline_message_id = models.CharField(max_length=100, blank=True)
+    data = models.CharField(max_length=100, blank=True)
+    game_short_name = models.CharField(max_length=100, blank=True)
+
+    objects = CallbackQueryManager()
+
+    @property
+    def chat(self):
+        return self.message.chat
+
+    @property
+    def text(self):
+        return self.data
+
+
+class UpdateManager(models.Manager):
+    @staticmethod
+    def _message_type(telegram_update: types.Update) -> str:
+        if telegram_update.message:
+            return Update.TYPE_MESSAGE
+        elif telegram_update.edited_message:
+            return Update.TYPE_EDITED_MESSAGE
+        elif telegram_update.channel_post:
+            return Update.TYPE_CHANNEL_POST
+        elif telegram_update.edited_channel_post:
+            return Update.TYPE_EDITED_CHANNEL_POST
+        elif telegram_update.callback_query:
+            return Update.TYPE_CALLBACK_QUERY
+
+    def from_telegram(self,
+                      bot: Bot,
+                      telegram_update: types.Update):
+        defaults = telegram_update.to_dict()
+        defaults.pop('update_id')
+        defaults['bot'] = bot
+        if telegram_message := telegram_update.effective_message:
+            defaults['message'] = Message.objects.from_telegram(
+                bot, telegram_message, direction=Message.DIRECTION_IN
+            )
+        if telegram_callback_query := telegram_update.callback_query:
+            defaults['callback_query'] = CallbackQuery.objects.from_telegram(
+                bot, telegram_callback_query
+            )
+        defaults['type'] = self._message_type(telegram_update)
+        update, _ = self.update_or_create(
+            update_id=telegram_update.update_id,
+            defaults=defaults
+        )
+        return update
+
+
+class Update(models.Model):
+    TYPE_MESSAGE = "message"
+    TYPE_EDITED_MESSAGE = "edited_message"
+    TYPE_CHANNEL_POST = "channel_post"
+    TYPE_EDITED_CHANNEL_POST = "edited_channel_post"
+    TYPE_CALLBACK_QUERY = "callback_query"
+    TYPE_CHOICES = (
+        (TYPE_MESSAGE, "Message"),
+        (TYPE_EDITED_MESSAGE, "Edited message"),
+        (TYPE_CHANNEL_POST, "Channel post"),
+        (TYPE_EDITED_CHANNEL_POST, "Edited channel post"),
+    )
+
+    bot = models.ForeignKey(Bot, on_delete=models.CASCADE)
+    handler = models.CharField(max_length=100, blank=True)
+    update_id = models.BigIntegerField(unique=True, db_index=True)
+    type = models.CharField(
+        max_length=20, choices=TYPE_CHOICES, default=TYPE_MESSAGE
+    )
+    message = models.OneToOneField(
+        Message, null=True, blank=True, on_delete=models.CASCADE,
+        related_name="update"
+    )
+    callback_query = models.OneToOneField(
+        CallbackQuery, null=True, blank=True, on_delete=models.CASCADE,
+    )
+
+    objects = UpdateManager()
+
+    def __str__(self):
+        return f"{self.update_id}"
+
+    @property
+    def telegram_object(self):
+        if self.type in [
+            self.TYPE_MESSAGE, self.TYPE_EDITED_MESSAGE,
+            self.TYPE_CHANNEL_POST, self.TYPE_EDITED_CHANNEL_POST
+        ]:
+            return self.message
+        elif self.type == self.TYPE_CALLBACK_QUERY:
+            return self.callback_query

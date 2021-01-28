@@ -30,7 +30,6 @@ from django_chatbot.handlers import (
     Handler
 )
 from django_chatbot.models import Bot, Chat, Message, Update
-from django_chatbot.forms import Form
 
 
 class HandlerTest(TestCase):
@@ -48,47 +47,6 @@ class HandlerTest(TestCase):
 
         self.update.refresh_from_db()
         self.assertEqual(self.update.handler, "test")
-
-    def test_form_match(self):
-        class TestHandler(Handler):
-            def _match(self, update: Update) -> bool:
-                return False
-
-        class TestForm(Form):
-            def on_complete(self):
-                pass
-
-        handler = TestHandler(name="handler", form_class=TestForm)
-        bot = Bot.objects.create(name='bot', token='token')
-        chat = Chat.objects.create(bot=bot, chat_id=1, type="private")
-        Message.objects.create(
-            message_id=2,
-            direction=Message.DIRECTION_OUT,
-            date=timezone.datetime(2000, 1, 1, 2, tzinfo=timezone.utc),
-            chat=chat,
-            text='Enter first field:',
-            extra={
-                'form': {
-                    'name': 'TestForm',
-                    'fields': {},
-                    'completed': False,
-                }
-            }
-        )
-        first_input = Message.objects.create(
-            direction=Message.DIRECTION_IN,
-            message_id=3,
-            date=timezone.datetime(2000, 1, 1, 3, tzinfo=timezone.utc),
-            chat=chat,
-            text='41',
-        )
-        update = Update.objects.create(
-            bot=bot,
-            update_id=1,
-            message=first_input,
-        )
-
-        self.assertTrue(handler._form_match(update))
 
 
 class CommandHandlerTestCase(TestCase):

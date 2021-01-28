@@ -21,16 +21,16 @@
 #  ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR
 #  THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 # *****************************************************************************
-
+import json
 import logging
 from dataclasses import dataclass
-from typing import List, Type
+from typing import List, Type, Union
 
 import requests
 
 from .types import (
-    MessageEntity,
-    TelegramType,
+    ForceReply, InlineKeyboardMarkup, MessageEntity,
+    ReplyKeyboardMarkup, ReplyKeyboardRemove, TelegramType,
     User,
     WebhookInfo, Message,
 )
@@ -83,18 +83,22 @@ class _Binder:
         if self.params:
             params = {k: v for k, v in self.params.items() if v is not None}
             response = requests.post(url=self.url, data=params)
+            log.debug(
+                "Telegram params=%s response: url=%s, status_code=%s, json=%s",
+                params, response.url, response.status_code, response.json()
+            )
         else:
             response = requests.get(url=self.url)
+            log.debug(
+                "Telegram request response: url=%s, status_code=%s, json=%s",
+                response.url, response.status_code, response.json()
+            )
         result = self._parse_response(response, self.telegram_type)
         return result
 
     @staticmethod
     def _parse_response(response: requests.Response,
                         telegram_type: Type[TelegramType]):
-        log.debug(
-            "Telegram response: url=%s, status_code=%s, json=%s",
-            response.url, response.status_code, response.json()
-        )
         if response.status_code == 200:
             response_result = response.json()
             result = _Binder._get_result(response_result, telegram_type)
@@ -150,8 +154,11 @@ class Api:
                     url: str,
                     max_connections: int = None,
                     allowed_updates: List[str] = None) -> bool:
-        params = locals()
-        params.pop('self')
+        params = {
+            'url': url,
+            'max_connections': max_connections,
+            'allowed_updates': allowed_updates,
+        }
         return self._bind(
             method_name="setWebhook",
             params=params,
@@ -166,13 +173,48 @@ class Api:
                      disable_notification: bool = False,
                      reply_to_message_id: int = None,
                      allow_sending_without_reply: bool = True,
+                     reply_markup: Union[
+                         ForceReply,
+                         InlineKeyboardMarkup,
+                         ReplyKeyboardMarkup,
+                         ReplyKeyboardRemove,
+                     ] = None
+
                      ) -> Message:
-        params = locals()
-        if entities is not None:
-            params['entities'] = [me.to_dict() for me in entities]
-        params.pop('self')
+        if entities:
+            entities = [e.to_dict() for e in entities]
+        if reply_markup:
+            reply_markup = json.dumps(reply_markup.to_dict())
+        params = {
+            'chat_id': chat_id,
+            'text': text,
+            'entities': entities,
+            'parse_mode': parse_mode,
+            'disable_web_page_preview': disable_web_page_preview,
+            'disable_notification': disable_notification,
+            'reply_to_message_id': reply_to_message_id,
+            'allow_sending_without_reply': allow_sending_without_reply,
+            'reply_markup': reply_markup,
+        }
         return self._bind(
             method_name="sendMessage",
             params=params,
             telegram_type=Message
         )
+
+
+@dataclass(eq=True)
+class SendMessageParams:
+    text: str
+    parse_mode: str = None
+    entities: List[MessageEntity] = None
+    disable_web_page_preview: bool = None
+    disable_notification: bool = None
+    allow_sending_without_reply: bool = None
+    reply_markup: Union[
+        InlineKeyboardMarkup, ReplyKeyboardMarkup,
+        ReplyKeyboardRemove, ForceReply,
+    ] = None
+
+    def to_dict(self):
+        return {k: v for k, v in self.__dict__.items() if v is not None}

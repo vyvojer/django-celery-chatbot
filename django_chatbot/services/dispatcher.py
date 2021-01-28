@@ -23,12 +23,16 @@
 # *****************************************************************************
 
 import importlib
+import logging
 from functools import lru_cache
 from typing import Dict, List
 
-from django_chatbot.models import Bot
-from django_chatbot.services.updates import save_update
+from django_chatbot.models import Bot, Update
 from django_chatbot.handlers import Handler
+from django_chatbot.telegram.types import Update as TelegramUpdate
+from services.forms import get_form
+
+log = logging.getLogger(__name__)
 
 
 @lru_cache()
@@ -47,11 +51,16 @@ def _load_bot_handlers(name: str) -> List[Handler]:
 class Dispatcher:
     def __init__(self, update_data: dict, token_slug: str):
         self.bot = Bot.objects.get(token_slug=token_slug)
-        self.update = save_update(bot=self.bot, update_data=update_data)
+        self.update = Update.objects.from_telegram(
+            bot=self.bot, telegram_update=TelegramUpdate.from_dict(update_data)
+        )
         self.handlers = load_handlers()
 
     def dispatch(self):
+        if form := get_form(self.update):
+            form.update(self.update)
+            return
         for handler in self.handlers[self.bot.token_slug]:
             if handler.match(update=self.update):
                 handler.handle_update(update=self.update)
-                break
+                return

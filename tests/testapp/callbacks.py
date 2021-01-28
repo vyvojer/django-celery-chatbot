@@ -12,12 +12,12 @@ def default(update: Update):
 
 def start(update: Update):
     update.message.reply("""
-    Command list:
-    /help this help
-    /add_note add new note
-    /count return note count
-    /show_notes show all notes
-    """)
+Command list:
+/help - help
+/add - add note
+/delete - delete note
+/count - count notes    
+""")
 
 
 def count(update: Update):

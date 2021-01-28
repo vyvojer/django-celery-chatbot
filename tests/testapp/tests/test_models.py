@@ -3,12 +3,28 @@ from unittest.mock import patch, Mock
 from django.test import TestCase
 from django.utils import timezone
 
-from django_chatbot.models import Bot, Message, Chat, User
+from django_chatbot.models import (
+    Bot,
+    CallbackQuery,
+    Message,
+    Chat,
+    Update,
+    User
+)
 from django_chatbot.telegram.api import TelegramError, Api
 from django_chatbot.telegram.types import (
+    Animation,
+    CallbackQuery as TelegramCallbackQuery,
     Chat as TelegramChat,
+    ChatLocation,
+    ChatPermissions,
+    ChatPhoto,
+    InlineKeyboardButton,
+    Location,
     Message as TelegramMessage,
+    Update as TelegramUpdate,
     User as TelegramUser,
+    InlineKeyboardMarkup,
     MessageEntity,
     WebhookInfo,
 )
@@ -298,6 +314,123 @@ class UserManagerTestCase(TestCase):
         self.assertEqual(user.username, "username")
 
 
+class UpdateManagerTestCase(TestCase):
+    def setUp(self) -> None:
+        self.bot = Bot.objects.create(
+            name="bot", token="token",
+        )
+
+    def test_from_telegram__message(self):
+        telegram_update = TelegramUpdate(
+            update_id=40,
+            message=TelegramMessage(
+                message_id=41,
+                chat=TelegramChat(id=42, type='private'),
+                date=timezone.datetime(2000, 1, 1, tzinfo=timezone.utc),
+            )
+        )
+
+        Update.objects.from_telegram(
+            telegram_update=telegram_update,
+            bot=self.bot,
+        )
+
+        update = Update.objects.first()
+        chat = Chat.objects.first()
+        message = Message.objects.first()
+        self.assertEqual(update.update_id, telegram_update.update_id)
+        self.assertEqual(update.message, message)
+        self.assertEqual(message.chat, chat)
+
+    def test_from_telegram__callback_query(self):
+        telegram_update = TelegramUpdate(
+            update_id=10000,
+            callback_query=TelegramCallbackQuery(
+                id="4382bfdwdsb323b2d9",
+                data="Data from button callback",
+                inline_message_id="1234csdbsk4839",
+                chat_instance="42a",
+                from_user=TelegramUser(
+                    id=1111111,
+                    is_bot=False,
+                    username="Testusername",
+                    first_name="Test Firstname",
+                    last_name="Test Lastname",
+                )
+            )
+        )
+
+        Update.objects.from_telegram(
+            bot=self.bot,
+            telegram_update=telegram_update,
+        )
+
+        update = Update.objects.first()
+        self.assertEqual(update.update_id, telegram_update.update_id)
+
+
+class ChatManagerTestCase(TestCase):
+    def setUp(self) -> None:
+        self.bot = Bot.objects.create(
+            name="bot",
+            token="token",
+        )
+
+    def test_from_telegram(self):
+        photo = ChatPhoto(
+            small_file_id='small_file_id',
+            small_file_unique_id='small_file_unique_id',
+            big_file_id='big_file_id',
+            big_file_unique_id='big_file_unique_id',
+        )
+        permissions = ChatPermissions(can_send_messages=True)
+        location = ChatLocation(
+            location=Location(longitude=10.5, latitude=62.8),
+            address='address',
+        )
+        telegram_chat = TelegramChat(
+            id=1,
+            type='private',
+            title='title',
+            username='username',
+            first_name='first_name',
+            last_name='last_name',
+            photo=photo,
+            bio='bio',
+            description='description',
+            invite_link='invite_link',
+            permissions=permissions,
+            slow_mode_delay=1,
+            sticker_set_name='sticker_set_name',
+            can_set_sticker_set=True,
+            linked_chat_id=1,
+            location=location,
+        )
+
+        Chat.objects.from_telegram(
+            telegram_chat=telegram_chat, bot=self.bot
+        )
+
+        chat = Chat.objects.first()
+
+        self.assertEqual(chat.chat_id, telegram_chat.id)
+        self.assertEqual(chat.type, telegram_chat.type)
+        self.assertEqual(chat.username, telegram_chat.username)
+        self.assertEqual(chat.first_name, telegram_chat.first_name)
+        self.assertEqual(chat.last_name, telegram_chat.last_name)
+        self.assertEqual(chat.photo, telegram_chat.photo)
+        self.assertEqual(chat.bio, telegram_chat.bio)
+        self.assertEqual(chat.description, telegram_chat.description)
+        self.assertEqual(chat.invite_link, telegram_chat.invite_link)
+        self.assertEqual(chat.permissions, telegram_chat.permissions)
+        self.assertEqual(chat.slow_mode_delay, telegram_chat.slow_mode_delay)
+        self.assertEqual(chat.sticker_set_name, telegram_chat.sticker_set_name)
+        self.assertEqual(chat.can_set_sticker_set,
+                         telegram_chat.can_set_sticker_set)
+        self.assertEqual(chat.linked_chat_id, telegram_chat.linked_chat_id)
+        self.assertEqual(chat.location, telegram_chat.location)
+
+
 class ChatTestCase(TestCase):
     def setUp(self) -> None:
         bot = Bot.objects.create(
@@ -318,10 +451,7 @@ class ChatTestCase(TestCase):
                      'is_bot': True,
                      'first_name': 'bot_name',
                      'username': 'bot_user_name'},
-            'chat': {'id': 1042,
-                     'first_name': 'Fedor',
-                     'last_name': 'Sumkin',
-                     'username': 'fedor',
+            'chat': {'id': 42,
                      'type': 'private'},
             'date': 1,
             'text': 'text'})
@@ -346,52 +476,76 @@ class ChatTestCase(TestCase):
 class MessageManagerTestCase(TestCase):
     def setUp(self) -> None:
         self.bot = Bot.objects.create(name="bot", token="token")
-        self.chat = Chat.objects.create(
-            bot=self.bot, chat_id=42, type="private"
-        )
 
     def test_from_telegram(self):
-        user = User.objects.create(user_id=42)
+        animation = Animation(
+            file_id="1",
+            file_unique_id="1",
+            width=1,
+            height=1,
+            duration=1,
+        )
+        reply_markup = InlineKeyboardMarkup(
+            inline_keyboard=[[InlineKeyboardButton(text="button")]]
+        )
         telegram_message = TelegramMessage(
             message_id=42,
             date=timezone.datetime(2000, 1, 1, tzinfo=timezone.utc),
-            chat=Chat(id=42, type="private"),
-            from_user=TelegramUser(id=42, is_bot=False)
+            chat=TelegramChat(id=42, type="private"),
+            from_user=TelegramUser(id=40, is_bot=False),
+            animation=animation,
+            reply_markup=reply_markup,
         )
         direction = Message.DIRECTION_OUT
 
         Message.objects.from_telegram(
-            telegram_message, direction, self.chat, user
+            bot=self.bot,
+            telegram_message=telegram_message,
+            direction=direction
         )
 
+        chat = Chat.objects.first()
+        self.assertEqual(chat.chat_id, 42)
+        self.assertEqual(chat.type, "private")
+        user = User.objects.first()
+        self.assertEqual(user.user_id, 40)
+        self.assertEqual(user.is_bot, False)
         message = Message.objects.first()
         self.assertEqual(message.direction, Message.DIRECTION_OUT)
         self.assertEqual(message.message_id, 42)
-        self.assertEqual(message.chat, self.chat)
+        self.assertEqual(message.chat, chat)
         self.assertEqual(message.from_user, user)
+        self.assertEqual(message.animation, animation)
+        self.assertEqual(message.reply_markup, reply_markup)
 
     def test_get_message(self):
+        chat = Chat.objects.create(
+            bot=self.bot, chat_id=42, type="private"
+        )
         wanted = Message.objects.create(
             message_id=42,
             date=timezone.datetime(2000, 1, 1, tzinfo=timezone.utc),
-            chat=self.chat
+            chat=chat
         )
 
         found = Message.objects.get_message(
             telegram_message=TelegramMessage(
                 message_id=wanted.message_id,
                 date=timezone.datetime(1999, 12, 31, tzinfo=timezone.utc),
-                chat=TelegramChat(id=self.chat.chat_id, type="private"),
+                chat=TelegramChat(id=chat.chat_id, type="private"),
             )
         )
 
         self.assertEqual(found, wanted)
 
     def test_get_message__wrong_chat_id(self):
+        chat = Chat.objects.create(
+            bot=self.bot, chat_id=42, type="private"
+        )
         wanted = Message.objects.create(
             message_id=42,
             date=timezone.datetime(2000, 1, 1, tzinfo=timezone.utc),
-            chat=self.chat
+            chat=chat
         )
 
         found = Message.objects.get_message(
@@ -464,7 +618,7 @@ class MessageTestCase(TestCase):
             message_id=43,
             date=timezone.datetime(1999, 12, 31, tzinfo=timezone.utc),
             from_user=TelegramUser(id=1, is_bot=True),
-            chat=TelegramChat(id=1, type="private"),
+            chat=TelegramChat(id=142, type="private"),
             text='Reply',
             reply_to_message=TelegramMessage(
                 message_id=42,
@@ -498,155 +652,43 @@ class MessageTestCase(TestCase):
         self.assertEqual(message.reply_to_message, incoming_message)
         self.assertEqual(incoming_message.reply_message, message)
 
-    def test_init_form(self):
-        bot = Bot.objects.create(name='bot', token='token')
-        chat = Chat.objects.create(bot=bot, chat_id=1, type='private')
-        message = Message.objects.create(
-            message_id=1,
-            chat=chat,
-            date=timezone.datetime(2000, 1, 1, tzinfo=timezone.utc)
+
+class CallbackQueryManagerTestCase(TestCase):
+    def setUp(self) -> None:
+        self.bot = Bot.objects.create(name="name", token="token")
+
+    def test_from_telegram(self):
+        telegram_callback_query = TelegramCallbackQuery(
+            id="4382bfdwdsb323b2d9",
+            data="Data from button callback",
+            chat_instance="42a",
+            from_user=TelegramUser(
+                id=1111111,
+                is_bot=False,
+                username="Testusername",
+                first_name="Test Firstname",
+                last_name="Test Lastname",
+            ),
+            message=TelegramMessage(
+                message_id=42,
+                date=timezone.datetime(2000, 1, 1, tzinfo=timezone.utc),
+                chat=TelegramChat(id=42, type="private"),
+                from_user=TelegramUser(id=40, is_bot=False),
+            )
         )
 
-        class DummyForm:
-            pass
+        CallbackQuery.objects.from_telegram(
+            bot=self.bot,
+            telegram_callback_query=telegram_callback_query,
+        )
 
-        message.init_form(form_class=DummyForm)
-
-        message.refresh_from_db()
+        callback_query = CallbackQuery.objects.first()
+        user = User.objects.get(user_id=1111111)
+        message = Message.objects.first()
         self.assertEqual(
-            message.extra.get('form'),
-            {
-                'name': 'DummyForm',
-                'fields': {},
-                'completed': False,
-            }
-        )
-
-    def test_get_form_root__out_message(self):
-        bot = Bot.objects.create(name='bot', token='token')
-        chat = Chat.objects.create(bot=bot, chat_id=1, type='private')
-        root_message = Message.objects.create(
-            direction=Message.DIRECTION_OUT,
-            message_id=1,
-            chat=chat,
-            date=timezone.datetime(2000, 1, 1, tzinfo=timezone.utc),
-            extra={'form': {}},
-        )
-
-        self.assertEqual(root_message.get_form_root(), None)
-
-    def test_get_form_root__root_answer(self):
-        bot = Bot.objects.create(name='bot', token='token')
-        chat = Chat.objects.create(bot=bot, chat_id=1, type='private')
-        root_message = Message.objects.create(
-            direction=Message.DIRECTION_OUT,
-            message_id=1,
-            chat=chat,
-            date=timezone.datetime(2000, 1, 1, tzinfo=timezone.utc),
-            extra={'form': {}},
-            text="Question 1"
-        )
-
-        answer = Message.objects.create(
-            direction=Message.DIRECTION_IN,
-            message_id=2,
-            chat=chat,
-            date=timezone.datetime(2000, 1, 1, 1, tzinfo=timezone.utc),
-            reply_to_message=root_message,
-            text="Answer 1"
-        )
-        root = answer.get_form_root()
-        self.assertEqual(root, root_message)
-
-    def test_get_form_root__not_root_answer(self):
-        bot = Bot.objects.create(name='bot', token='token')
-        chat = Chat.objects.create(bot=bot, chat_id=1, type='private')
-        root_prompt = Message.objects.create(
-            direction=Message.DIRECTION_OUT,
-            message_id=1,
-            chat=chat,
-            date=timezone.datetime(2000, 1, 1, tzinfo=timezone.utc),
-            extra={'form': {}},
-            text="Question 1"
-        )
-        Message.objects.create(
-            direction=Message.DIRECTION_IN,
-            message_id=2,
-            chat=chat,
-            date=timezone.datetime(2000, 1, 1, 1, tzinfo=timezone.utc),
-            reply_to_message=root_prompt,
-            text="Answer 1"
-        )
-        prompt_2 = Message.objects.create(
-            direction=Message.DIRECTION_OUT,
-            message_id=3,
-            chat=chat,
-            date=timezone.datetime(2000, 1, 1, 2, tzinfo=timezone.utc),
-            extra={'form_root_pk': root_prompt.pk},
-            text="Question 2"
-        )
-        input_2 = Message.objects.create(
-            direction=Message.DIRECTION_IN,
-            message_id=4,
-            chat=chat,
-            date=timezone.datetime(2000, 1, 1, 3, tzinfo=timezone.utc),
-            reply_to_message=prompt_2,
-            text="Answer 1"
-        )
-        root = input_2.get_form_root()
-        self.assertEqual(root, root_prompt)
-
-    def test_get_form_fields(self):
-        message = Message(
-            extra={
-                'form': {
-                    'fields': {'first': 1, 'second': 2}
-                }
-            }
-        )
-
-        fields = message.get_form_fields()
-
-        self.assertEqual(fields, {'first': 1, 'second': 2})
-
-    def test_update_form(self):
-        bot = Bot.objects.create(name='bot', token='token')
-        chat = Chat.objects.create(bot=bot, chat_id=1, type='private')
-        message = Message.objects.create(
-            direction=Message.DIRECTION_OUT,
-            message_id=1,
-            chat=chat,
-            date=timezone.datetime(2000, 1, 1, tzinfo=timezone.utc),
-            extra={'form': {}},
-            text="Question 1"
-        )
-
-        message.update_form(fields={'first': 1}, completed=True)
-
-        message.refresh_from_db()
-        self.assertEqual(
-            message.extra['form'],
-            {
-                'fields': {'first': 1},
-                'completed': True,
-            }
-        )
-
-    def test_set_root(self):
-        bot = Bot.objects.create(name='bot', token='token')
-        chat = Chat.objects.create(bot=bot, chat_id=1, type='private')
-        message1 = Message.objects.create(
-            message_id=1,
-            chat=chat,
-            date=timezone.datetime(2000, 1, 1, tzinfo=timezone.utc),
-        )
-        message2 = Message.objects.create(
-            message_id=2,
-            chat=chat,
-            date=timezone.datetime(2000, 1, 1, tzinfo=timezone.utc),
-        )
-
-        message2.set_form_root(form_root=message1)
-
-        message2.refresh_from_db()
-        self.assertEqual(message2.extra, {'form_root_pk': message1.pk})
+            callback_query.callback_query_id,
+            telegram_callback_query.id)
+        self.assertEqual(callback_query.from_user, user)
+        self.assertEqual(callback_query.message, message)
+        self.assertEqual(callback_query.chat.chat_id, 42)
+        self.assertEqual(callback_query.text, "Data from button callback")

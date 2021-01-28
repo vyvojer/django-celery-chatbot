@@ -78,31 +78,39 @@ class DispatcherTestCase(TestCase):
 
         self.token_slug = "token2"
 
-    @patch("django_chatbot.services.dispatcher.save_update")
+    @patch("django_chatbot.services.dispatcher.Update.objects.from_telegram")
+    @patch("django_chatbot.services.dispatcher.TelegramUpdate.from_dict")
     def test_init__set_attributes(
             self,
-            mocked_save_update: Mock,
+            mocked_from_dict: Mock,
+            mocked_from_telegram: Mock,
             mocked_load_handlers: Mock,
     ):
         update = Mock()
-        mocked_save_update.return_value = update
+        telegram_update = Mock()
+        mocked_from_telegram.return_value = update
+        mocked_from_dict.return_value = telegram_update
 
         dispatcher = Dispatcher(self.update_data, self.token_slug)
 
         self.assertEqual(dispatcher.bot, self.bot)
         self.assertEqual(dispatcher.update, update)
-        mocked_save_update.assert_called_with(
-            bot=self.bot, update_data=self.update_data
+        mocked_from_telegram.assert_called_with(
+            bot=self.bot, telegram_update=telegram_update
         )
 
-    @patch("django_chatbot.services.dispatcher.save_update")
+    @patch("django_chatbot.services.dispatcher.Update.objects.from_telegram")
+    @patch("django_chatbot.services.dispatcher.TelegramUpdate.from_dict")
     def test_dispatch(
             self,
-            mocked_save_update: Mock,
+            mocked_from_dict: Mock,
+            mocked_from_telegram: Mock,
             mocked_load_handlers: Mock,
     ):
         update = Mock()
-        mocked_save_update.return_value = update
+        telegram_update = Mock()
+        mocked_from_telegram.return_value = update
+        mocked_from_dict.return_value = telegram_update
         handler_1 = Mock(**{'match.return_value': False})
         handler_2 = Mock(**{'match.return_value': True})
         handler_3 = Mock(**{'match.return_value': True})
