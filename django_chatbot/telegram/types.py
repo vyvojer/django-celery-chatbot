@@ -22,7 +22,6 @@
 #  THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 # *****************************************************************************
 
-import copy
 from dataclasses import dataclass, field
 from typing import List, Optional, Union
 
@@ -32,8 +31,7 @@ from django.utils import timezone
 class TelegramType:
     @classmethod
     def from_dict(cls, source: dict):
-        copied = copy.deepcopy(source)
-        o = TelegramType._cast_result(cls=cls, source=copied)
+        o = TelegramType._cast_result(cls=cls, source=source)
         return o
 
     @staticmethod
@@ -41,24 +39,6 @@ class TelegramType:
         dt = timezone.datetime.fromtimestamp(timestamp)
         dt = timezone.make_aware(dt, timezone=timezone.utc)
         return dt
-
-    @staticmethod
-    def _convert_date(source: dict) -> dict:
-        if 'date' in source:
-            source['date'] = TelegramType._from_timestamp(source['date'])
-        return source
-
-    @staticmethod
-    def _rename_from(source: dict) -> dict:
-        if 'from' in source:
-            source['from_user'] = source.pop('from')
-        return source
-
-    @staticmethod
-    def _convert_dict(source: dict) -> dict:
-        TelegramType._rename_from(source)
-        TelegramType._convert_date(source)
-        return source
 
     @staticmethod
     def _get_telegram_type(
@@ -76,45 +56,56 @@ class TelegramType:
                     return some_type
 
     @staticmethod
+    def _cast_list(param_type, value: List) -> List:
+        member_class = param_type.__args__[0]
+        casted = []
+        for member in value:
+            if isinstance(member, list):
+                casted.append(TelegramType._cast_list(member_class, member))
+            elif tel_type := TelegramType._get_telegram_type(member_class):
+                casted.append(
+                    TelegramType._cast_result(cls=tel_type, source=member)
+                )
+            else:
+                casted.append(member)
+        return casted
+
+    @staticmethod
     def _cast_result(cls, source: dict):
-        TelegramType._convert_dict(source)
+        casted = {}
         for param, value in source.items():
+            if param == 'from':
+                param = 'from_user'
+            if param == 'date':
+                value = TelegramType._from_timestamp(value)
             param_type = cls.__annotations__[param]
-            telegram_type = TelegramType._get_telegram_type(param_type)
             if isinstance(value, list):
-                member_class = param_type.__args__[0]
-                telegram_type = TelegramType._get_telegram_type(member_class)
-                if telegram_type:
-                    source[param] = [
-                        TelegramType._cast_result(
-                            cls=telegram_type, source=member
-                        )
-                        for member in value
-                    ]
-            elif telegram_type:
-                source[param] = TelegramType._cast_result(
+                casted[param] = TelegramType._cast_list(param_type, value)
+            elif telegram_type := TelegramType._get_telegram_type(param_type):
+                casted[param] = TelegramType._cast_result(
                     cls=telegram_type, source=value
                 )
-        o = cls(**source)
-        return o
+            else:
+                casted[param] = value
+
+        obj = cls(**casted)
+        return obj
 
     def to_dict(self):
         d = {}
         for key, value in self.__dict__.items():
             if not key.startswith("_") and value is not None:
-                if issubclass(type(value), TelegramType):
-                    d[key] = value.to_dict()
-                elif isinstance(value, list):
-                    members = []
-                    for member in value:
-                        if issubclass(type(member), TelegramType):
-                            members.append(member.to_dict())
-                        else:
-                            members.append(member)
-                    d[key] = members
-                else:
-                    d[key] = value
+                d[key] = self._to_dict(value)
         return d
+
+    @staticmethod
+    def _to_dict(value):
+        casted = value
+        if issubclass(type(value), TelegramType):
+            casted = value.to_dict()
+        elif isinstance(value, list):
+            casted = [TelegramType._to_dict(member) for member in value]
+        return casted
 
 
 @dataclass(eq=True)
@@ -520,6 +511,33 @@ class ChosenInlineResult(TelegramType):
 
 
 @dataclass(eq=True)
+class KeyboardButtonPollType(TelegramType):
+    type: str = None
+
+
+@dataclass(eq=True)
+class KeyboardButton(TelegramType):
+    text: str
+    request_contact: bool = None
+    request_location: bool = None
+    request_poll: KeyboardButtonPollType = None
+
+
+@dataclass(eq=True)
+class ReplyKeyboardMarkup(TelegramType):
+    keyboard: List[List[KeyboardButton]]
+    resize_keyboard: bool = None
+    one_time_keyboard: bool = None
+    selective: bool = None
+
+
+@dataclass(eq=True)
+class ReplyKeyboardRemove(TelegramType):
+    remove_keyboard: bool
+    selective: bool = None
+
+
+@dataclass(eq=True)
 class InlineKeyboardButton(TelegramType):
     text: str
     url: str = None
@@ -533,7 +551,13 @@ class InlineKeyboardButton(TelegramType):
 
 @dataclass(eq=True)
 class InlineKeyboardMarkup(TelegramType):
-    inline_keyboard: List[InlineKeyboardButton]
+    inline_keyboard: List[List[InlineKeyboardButton]]
+
+
+@dataclass(eq=True)
+class ForceReply(TelegramType):
+    force_reply: bool = True
+    selective: bool = None
 
 
 @dataclass(eq=True)

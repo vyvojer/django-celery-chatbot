@@ -5,7 +5,9 @@ from unittest import TestCase
 
 from django.utils import timezone
 
-from django_chatbot.telegram.types import TelegramType, Update, User
+from django_chatbot.telegram.types import CallbackQuery, Chat, Message, \
+    TelegramType, Update, \
+    User
 
 
 class TelegramTypeTestCase(TestCase):
@@ -28,23 +30,6 @@ class TelegramTypeTestCase(TestCase):
         self.assertEqual(dt, timezone.datetime(
             2015, 9, 7, 17, 5, 32, tzinfo=timezone.utc))
 
-    def test_convert_dict(self):
-        source = {
-            'from': 'user',
-            'date': 1441645532,
-        }
-
-        converted = TelegramType._convert_dict(source)
-
-        self.assertEqual(
-            converted,
-            {
-                'from_user': 'user',
-                'date': timezone.datetime(
-                    2015, 9, 7, 17, 5, 32, tzinfo=timezone.utc)
-            }
-        )
-
     def test_from_dict(self):
         source_data = {
             "parent_p1": 1,
@@ -55,6 +40,11 @@ class TelegramTypeTestCase(TestCase):
                     {"grandchild_p1": 7, "grandchild_p2": ["e", "f"]},
                 ],
                 "child_p2": 2,
+                "child_p3": [[
+                    {"grandchild_p1": 5, "grandchild_p2": ["a", "b"]},
+                    {"grandchild_p1": 6, "grandchild_p2": ["c", "d"]},
+                    {"grandchild_p1": 7, "grandchild_p2": ["e", "f"]},
+                ]],
             }
         }
         source = copy.deepcopy(source_data)
@@ -68,6 +58,7 @@ class TelegramTypeTestCase(TestCase):
         class Child(TelegramType):
             child_p1: List[GrandChild]
             child_p2: int
+            child_p3: List[List[GrandChild]]
 
         @dataclass(frozen=True)
         class Parent(TelegramType):
@@ -87,6 +78,11 @@ class TelegramTypeTestCase(TestCase):
                         GrandChild(7, ["e", "f"]),
                     ],
                     child_p2=2,
+                    child_p3=[[
+                        GrandChild(5, ["a", "b"]),
+                        GrandChild(6, ["c", "d"]),
+                        GrandChild(7, ["e", "f"]),
+                    ]],
                 )
             )
         )
@@ -143,7 +139,7 @@ class UpdateTestCase(TestCase):
         source = {
             "update_id": 10000,
             "message": {
-                "date": 1441645532,
+                "date": 1,
                 "chat": {
                     "last_name": "Test Lastname",
                     "id": 1111111,
@@ -252,3 +248,105 @@ class UpdateTestCase(TestCase):
             2015, 9, 7, 17, 5, 32, tzinfo=timezone.utc)
                          )
         self.assertEqual(message.text, '/start')
+
+
+class UpdateFromDictTestCase(TestCase):
+    """
+
+    """
+
+    def test_message_with_text(self):
+        source = {
+            "update_id": 10000,
+            "message": {
+                "date": 1441645532,
+                "chat": {
+                    "last_name": "Test Lastname",
+                    "id": 1111111,
+                    "type": "private",
+                    "first_name": "Test Firstname",
+                    "username": "Testusername"
+                },
+                "message_id": 1365,
+                "from": {
+                    "last_name": "Test Lastname",
+                    "is_bot": False,
+                    "id": 1111111,
+                    "first_name": "Test Firstname",
+                    "username": "Testusername"
+                },
+                "text": "/start"
+            }
+        }
+
+        update = Update.from_dict(source=source)
+
+        self.assertEqual(update.update_id, 10000)
+        self.assertEqual(
+            update,
+            Update(
+                update_id=10000,
+                message=Message(
+                    message_id=1365,
+                    text="/start",
+                    date=timezone.datetime(
+                        2015, 9, 7, 17, 5, 32, tzinfo=timezone.utc
+                    ),
+                    chat=Chat(
+                        id=1111111,
+                        type="private",
+                        username="Testusername",
+                        first_name="Test Firstname",
+                        last_name="Test Lastname",
+                    ),
+                    from_user=User(
+                        id=1111111,
+                        is_bot=False,
+                        username="Testusername",
+                        first_name="Test Firstname",
+                        last_name="Test Lastname",
+                    )
+                )
+            )
+        )
+
+    def test_callback_query(self):
+        source = {
+            "update_id": 10000,
+            "callback_query": {
+                "id": "4382bfdwdsb323b2d9",
+                "chat_instance": "42a",
+                "from": {
+                    "last_name": "Test Lastname",
+                    "is_bot": False,
+                    "id": 1111111,
+                    "first_name": "Test Firstname",
+                    "username": "Testusername"
+                },
+                "data": "Data from button callback",
+                "inline_message_id": "1234csdbsk4839"
+            }
+        }
+
+        update = Update.from_dict(source=source)
+
+        self.assertEqual(update.update_id, 10000)
+        self.assertEqual(
+            update,
+            Update(
+                update_id=10000,
+                callback_query=CallbackQuery(
+                    id="4382bfdwdsb323b2d9",
+                    data="Data from button callback",
+                    inline_message_id="1234csdbsk4839",
+                    chat_instance="42a",
+                    from_user=User(
+                        id=1111111,
+                        is_bot=False,
+                        username="Testusername",
+                        first_name="Test Firstname",
+                        last_name="Test Lastname",
+                    )
+                )
+            )
+        )

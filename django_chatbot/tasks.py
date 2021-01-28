@@ -41,8 +41,7 @@ class LoggingTask(Task):
         super(LoggingTask, self).on_failure(exc, task_id, args, kwargs, einfo)
 
 
-@shared_task(bind=True, ignore_result=True)
+@shared_task(bind=True, ignore_result=True, base=LoggingTask)
 def dispatch(self, update_data: dict, token_slug: str):
-    log.debug("Task started")
     dispatcher = Dispatcher(update_data=update_data, token_slug=token_slug)
     dispatcher.dispatch()

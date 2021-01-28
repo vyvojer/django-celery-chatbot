@@ -23,7 +23,7 @@
 # *****************************************************************************
 
 from django.contrib import admin
-from .models import Bot, Chat, Message, Update, User
+from .models import Bot, CallbackQuery, Chat, Message, Update, User
 
 
 @admin.register(Bot)
@@ -60,13 +60,21 @@ class MessageAdmin(admin.ModelAdmin):
         return obj.text[:20]
 
 
+@admin.register(CallbackQuery)
+class CallbackQueryAdmin(admin.ModelAdmin):
+    list_display = [
+       "callback_query_id",
+       "from_user",
+    ]
+
+
 @admin.register(Update)
 class UpdateAdmin(admin.ModelAdmin):
     list_display = [
         "bot",
         "update_id",
         "handler",
-        "message_type",
+        "type",
     ]
 
 
