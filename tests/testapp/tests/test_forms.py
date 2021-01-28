@@ -392,7 +392,6 @@ class FormTestCase(TestCase):
         out_messages = Message.objects.filter(direction=Message.DIRECTION_OUT)
         first_prompt = out_messages[0]
         last_prompt = out_messages[1]
-        deserialized = load_form(first_prompt)
         self.assertEqual(last_prompt.chat, self.chat)
         self.assertEqual(last_prompt.direction, Message.DIRECTION_OUT)
         self.assertEqual(last_prompt.text,
