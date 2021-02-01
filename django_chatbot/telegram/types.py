@@ -22,6 +22,8 @@
 #  THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 # *****************************************************************************
 
+"""Contains telegram types"""
+
 from dataclasses import dataclass, field
 from typing import List, Optional, Union
 
@@ -29,13 +31,25 @@ from django.utils import timezone
 
 
 class TelegramType:
+    """Base class for telegram types"""
+
     @classmethod
     def from_dict(cls, source: dict):
+        """Create TelegramType from response dict
+
+        Args:
+            source: Telegram response dictionary
+
+        Returns:
+            TelegramType
+
+        """
         o = TelegramType._cast_result(cls=cls, source=source)
         return o
 
     @staticmethod
     def _from_timestamp(timestamp: int) -> timezone.datetime:
+        """Convert timestamp to datetime"""
         dt = timezone.datetime.fromtimestamp(timestamp)
         dt = timezone.make_aware(dt, timezone=timezone.utc)
         return dt
@@ -43,6 +57,17 @@ class TelegramType:
     @staticmethod
     def _get_telegram_type(
             some_type: Union[type, str]):
+        """Extract `TelegramType` from annotation type.
+
+        Annotation can be
+
+        Args:
+            some_type: Annotation type.
+
+        Returns:
+            TelegramType or None if the annotation type is not TelegramType
+
+        """
         if isinstance(some_type, type):
             if issubclass(some_type, TelegramType):
                 return some_type
@@ -72,6 +97,20 @@ class TelegramType:
 
     @staticmethod
     def _cast_result(cls, source: dict):
+        """Recursively cast `source` to TelegramType `cls`
+
+        Members of the object will be casted accordingly to class annotations.
+        Three cases will be handled: TelegramType, List,
+        and built-in python type.
+
+        Args:
+            cls (TelegramType): TelegramType to which source should be casted.
+            source: Telegram type dictionary
+
+        Returns:
+            TelegramType: casted telegram object.
+
+        """
         casted = {}
         for param, value in source.items():
             if param == 'from':
@@ -110,6 +149,10 @@ class TelegramType:
 
 @dataclass(eq=True)
 class User(TelegramType):
+    """This object represents a Telegram user or bot.
+
+    https://core.telegram.org/bots/api#user
+    """
     id: int
     is_bot: bool
     first_name: str = None
@@ -135,6 +178,10 @@ class WebhookInfo(TelegramType):
 
 @dataclass(eq=True)
 class ChatPhoto(TelegramType):
+    """This object represents a chat photo.
+
+    https://core.telegram.org/bots/api#chatphoto
+    """
     small_file_id: str
     small_file_unique_id: str
     big_file_id: str
@@ -143,6 +190,12 @@ class ChatPhoto(TelegramType):
 
 @dataclass(eq=True)
 class ChatPermissions(TelegramType):
+    """
+    Describes actions that a non-administrator user is allowed to take in
+    a chat.
+
+    https://core.telegram.org/bots/api#chatpermissions
+    """
     can_send_messages: bool = None
     can_send_media_messages: bool = None
     can_send_polls: bool = None
@@ -155,6 +208,10 @@ class ChatPermissions(TelegramType):
 
 @dataclass(eq=True)
 class Location(TelegramType):
+    """This object represents a point on the map.
+
+    https://core.telegram.org/bots/api#location
+    """
     longitude: float
     latitude: float
     horizontal_accuracy: float = None
@@ -165,12 +222,20 @@ class Location(TelegramType):
 
 @dataclass(eq=True)
 class ChatLocation(TelegramType):
+    """Represents a location to which a chat is connected.
+
+    https://core.telegram.org/bots/api#chatlocation
+    """
     location: Location
     address: str
 
 
 @dataclass(eq=True)
 class Chat(TelegramType):
+    """This object represents a chat.
+
+    https://core.telegram.org/bots/api#chat
+    """
     id: int
     type: str
     title: str = None
@@ -192,6 +257,11 @@ class Chat(TelegramType):
 
 @dataclass(eq=True)
 class MessageEntity(TelegramType):
+    """This object represents one special entity in a text message.
+
+    For example, hashtags, usernames, URLs, etc.
+    https://core.telegram.org/bots/api#messageentity
+    """
     type: str
     offset: int
     length: int
@@ -203,6 +273,10 @@ class MessageEntity(TelegramType):
 
 @dataclass(eq=True)
 class PhotoSize(TelegramType):
+    """This object represents one size of a photo or a file/sticker thumbnail.
+
+    https://core.telegram.org/bots/api#photosize
+    """
     file_id: str
     file_unique_id: str
     width: int
@@ -212,6 +286,10 @@ class PhotoSize(TelegramType):
 
 @dataclass(eq=True)
 class Animation(TelegramType):
+    """This object represents an animation file
+
+    https://core.telegram.org/bots/api#animation
+    """
     file_id: str
     file_unique_id: str
     width: int
@@ -225,6 +303,10 @@ class Animation(TelegramType):
 
 @dataclass(eq=True)
 class Audio(TelegramType):
+    """This object represents an audio file.
+
+    https://core.telegram.org/bots/api#audio
+    """
     file_id: str
     file_unique_id: str
     duration: int
@@ -238,6 +320,10 @@ class Audio(TelegramType):
 
 @dataclass(eq=True)
 class Document(TelegramType):
+    """This object represents a general file.
+
+    https://core.telegram.org/bots/api#document
+    """
     file_id: str
     file_unique_id: str
     thumb: PhotoSize = None
@@ -248,6 +334,10 @@ class Document(TelegramType):
 
 @dataclass(eq=True)
 class Video(TelegramType):
+    """This object represents a video file.
+
+    https://core.telegram.org/bots/api#video
+    """
     file_id: str
     file_unique_id: str
     width: int
@@ -261,6 +351,10 @@ class Video(TelegramType):
 
 @dataclass(eq=True)
 class VideoNote(TelegramType):
+    """This object represents a video message
+
+    https://core.telegram.org/bots/api#videonote
+    """
     file_unique_id: str
     length: int
     duration: int
@@ -270,6 +364,10 @@ class VideoNote(TelegramType):
 
 @dataclass(eq=True)
 class Voice(TelegramType):
+    """This object represents a voice note.
+
+    https://core.telegram.org/bots/api#voice
+    """
     file_id: str
     file_unique_id: str
     duration: int
@@ -279,6 +377,10 @@ class Voice(TelegramType):
 
 @dataclass(eq=True)
 class Contact(TelegramType):
+    """This object represents a phone contact.
+
+    https://core.telegram.org/bots/api#contact
+    """
     phone_number: str
     first_name: str
     last_name: str = None
@@ -288,18 +390,30 @@ class Contact(TelegramType):
 
 @dataclass(eq=True)
 class Dice(TelegramType):
+    """This object represents an animated emoji that displays a random value.
+
+    https://core.telegram.org/bots/api#dice
+    """
     emoji: str
     value: int
 
 
 @dataclass(eq=True)
 class PollOption(TelegramType):
+    """This object contains information about one answer option in a poll.
+
+    https://core.telegram.org/bots/api#polloption
+    """
     text: str
     voter_count: int
 
 
 @dataclass(eq=True)
 class PollAnswer(TelegramType):
+    """This object represents an answer of a user in a non-anonymous poll.
+
+    https://core.telegram.org/bots/api#pollanswer
+    """
     poll_id: str
     user: User
     option_ids: List[int]
@@ -307,6 +421,10 @@ class PollAnswer(TelegramType):
 
 @dataclass(eq=True)
 class Poll(TelegramType):
+    """This object contains information about a poll.
+
+    https://core.telegram.org/bots/api#poll
+    """
     id: str
     question: str
     options: List[PollOption]
@@ -324,6 +442,10 @@ class Poll(TelegramType):
 
 @dataclass(eq=True)
 class Venue(TelegramType):
+    """This object represents a venue.
+
+    https://core.telegram.org/bots/api#venue
+    """
     location: Location
     title: str
     address: str
@@ -335,6 +457,12 @@ class Venue(TelegramType):
 
 @dataclass(eq=True)
 class ProximityAlertTriggered(TelegramType):
+    """
+    This object represents the content of a service message, sent whenever
+    a user in the chat triggers a proximity alert set by another user.
+
+    https://core.telegram.org/bots/api#proximityalerttriggered
+    """
     traveler: User
     watcher: User
     distance: int
@@ -342,6 +470,12 @@ class ProximityAlertTriggered(TelegramType):
 
 @dataclass(eq=True)
 class MaskPosition(TelegramType):
+    """
+    This object describes the position on faces where
+    a mask should be placed by default.
+
+    https://core.telegram.org/bots/api#maskposition
+    """
     point: str
     x_shift: float
     y_shift: float
@@ -350,6 +484,10 @@ class MaskPosition(TelegramType):
 
 @dataclass(eq=True)
 class Sticker(TelegramType):
+    """This object represents a sticker.
+
+    https://core.telegram.org/bots/api#sticker
+    """
     file_id: str
     file_unique_id: str
     width: int
@@ -364,6 +502,10 @@ class Sticker(TelegramType):
 
 @dataclass(eq=True)
 class Game(TelegramType):
+    """This object represents a game.
+
+    https://core.telegram.org/bots/api#game
+    """
     title: str
     description: str
     photo: List[PhotoSize]
@@ -384,6 +526,10 @@ class Game(TelegramType):
 
 @dataclass(eq=True)
 class Invoice(TelegramType):
+    """This object contains basic information about an invoice.
+
+    https://core.telegram.org/bots/api#invoice
+    """
     title: str
     description: str
     start_parameter: str
@@ -393,6 +539,10 @@ class Invoice(TelegramType):
 
 @dataclass(eq=True)
 class ShippingAddress(TelegramType):
+    """This object represents a shipping address.
+
+    https://core.telegram.org/bots/api#shippingaddress
+    """
     country_code: str
     state: str
     city: str
@@ -403,6 +553,10 @@ class ShippingAddress(TelegramType):
 
 @dataclass(eq=True)
 class OrderInfo(TelegramType):
+    """This object represents information about an order.
+
+    https://core.telegram.org/bots/api#orderinfo
+    """
     name: str = None
     phone_number: str = None
     email: str = None
@@ -411,6 +565,10 @@ class OrderInfo(TelegramType):
 
 @dataclass(eq=True)
 class SuccessfulPayment(TelegramType):
+    """This object contains basic information about a successful payment.
+
+    https://core.telegram.org/bots/api#successfulpayment
+    """
     currency: str
     total_amount: int
     invoice_payload: str
@@ -422,6 +580,10 @@ class SuccessfulPayment(TelegramType):
 
 @dataclass(eq=True)
 class ShippingQuery(TelegramType):
+    """This object contains information about an incoming shipping query.
+
+    https://core.telegram.org/bots/api#shippingquery
+    """
     id: str
     from_user: User
     invoice_payload: str
@@ -430,6 +592,10 @@ class ShippingQuery(TelegramType):
 
 @dataclass(eq=True)
 class PreCheckoutQuery(TelegramType):
+    """This object contains information about an incoming pre-checkout query.
+
+    https://core.telegram.org/bots/api#precheckoutquery
+    """
     id: str
     from_user: User
     currency: str
@@ -441,6 +607,10 @@ class PreCheckoutQuery(TelegramType):
 
 @dataclass(eq=True)
 class PassportFile(TelegramType):
+    """This object represents a file uploaded to Telegram Passport.
+
+    https://core.telegram.org/bots/api#passportfile
+    """
     file_id: str
     file_unique_id: str
     file_size: int
@@ -449,6 +619,12 @@ class PassportFile(TelegramType):
 
 @dataclass(eq=True)
 class EncryptedPassportElement(TelegramType):
+    """
+    Contains information about documents or other Telegram Passport elements
+    shared with the bot by the user.
+
+    https://core.telegram.org/bots/api#encryptedpassportelement
+    """
     type: str
     hash: str
     data: str = None
@@ -463,6 +639,12 @@ class EncryptedPassportElement(TelegramType):
 
 @dataclass(eq=True)
 class EncryptedCredentials(TelegramType):
+    """
+    Contains data required for decrypting and authenticating
+    EncryptedPassportElement.
+
+    https://core.telegram.org/bots/api#encryptedcredentials
+    """
     data: str
     hash: str
     secret: str
@@ -470,12 +652,24 @@ class EncryptedCredentials(TelegramType):
 
 @dataclass(eq=True)
 class PassportData(TelegramType):
+    """
+    Contains information about Telegram Passport data shared with
+    the bot by the user.
+
+    https://core.telegram.org/bots/api#passportdata
+    """
     data: List[EncryptedPassportElement]
     credentials: EncryptedCredentials
 
 
 @dataclass(eq=True)
 class LoginUrl(TelegramType):
+    """
+    This object represents a parameter of the inline keyboard button
+    used to automatically authorize a user.
+
+    https://core.telegram.org/bots/api#loginurl
+    """
     url: str
     forward_text: str = None
     bot_username: str = None
@@ -483,6 +677,10 @@ class LoginUrl(TelegramType):
 
 @dataclass(eq=True)
 class CallbackGame(TelegramType):
+    """A placeholder, currently holds no information.
+
+    https://core.telegram.org/bots/api#callbackgame
+    """
     user_id: int
     score: int
     force: bool = None
@@ -494,6 +692,10 @@ class CallbackGame(TelegramType):
 
 @dataclass(eq=True)
 class InlineQuery(TelegramType):
+    """This object represents an incoming inline query.
+
+    https://core.telegram.org/bots/api#inlinequery
+    """
     id: str
     from_user: User
     query: str
@@ -503,6 +705,12 @@ class InlineQuery(TelegramType):
 
 @dataclass(eq=True)
 class ChosenInlineResult(TelegramType):
+    """
+    Represents a result of an inline query that was chosen by the user
+    and sent to their chat partner.
+
+    https://core.telegram.org/bots/api#choseninlineresult
+    """
     result_id: str
     from_user: User
     query: str
@@ -512,11 +720,21 @@ class ChosenInlineResult(TelegramType):
 
 @dataclass(eq=True)
 class KeyboardButtonPollType(TelegramType):
+    """
+    This object represents type of a poll, which is allowed to be created
+    and sent when the corresponding button is pressed.
+
+    https://core.telegram.org/bots/api#keyboardbuttonpolltype
+    """
     type: str = None
 
 
 @dataclass(eq=True)
 class KeyboardButton(TelegramType):
+    """This object represents one button of the reply keyboard.
+
+    https://core.telegram.org/bots/api#keyboardbutton
+    """
     text: str
     request_contact: bool = None
     request_location: bool = None
@@ -525,6 +743,10 @@ class KeyboardButton(TelegramType):
 
 @dataclass(eq=True)
 class ReplyKeyboardMarkup(TelegramType):
+    """This object represents a custom keyboard with reply options.
+
+    https://core.telegram.org/bots/api#replykeyboardmarkup
+    """
     keyboard: List[List[KeyboardButton]]
     resize_keyboard: bool = None
     one_time_keyboard: bool = None
@@ -533,12 +755,23 @@ class ReplyKeyboardMarkup(TelegramType):
 
 @dataclass(eq=True)
 class ReplyKeyboardRemove(TelegramType):
+    """
+    Upon receiving a message with this object, Telegram clients will remove
+    the current custom keyboard and display the default letter-keyboard.
+
+    https://core.telegram.org/bots/api#replykeyboardremove
+    """
     remove_keyboard: bool
     selective: bool = None
 
 
 @dataclass(eq=True)
 class InlineKeyboardButton(TelegramType):
+    """
+    This object represents one button of an inline keyboard.
+
+    https://core.telegram.org/bots/api#inlinekeyboardbutton
+    """
     text: str
     url: str = None
     login_url: LoginUrl = None
@@ -551,17 +784,33 @@ class InlineKeyboardButton(TelegramType):
 
 @dataclass(eq=True)
 class InlineKeyboardMarkup(TelegramType):
+    """
+    This object represents an inline keyboard that appears right next
+    to the message it belongs to.
+
+    https://core.telegram.org/bots/api#inlinekeyboardmarkup
+    """
     inline_keyboard: List[List[InlineKeyboardButton]]
 
 
 @dataclass(eq=True)
 class ForceReply(TelegramType):
+    """
+    Upon receiving a message with this object,
+    Telegram clients will display a reply interface to the user
+
+    https://core.telegram.org/bots/api#forcereply
+    """
     force_reply: bool = True
     selective: bool = None
 
 
 @dataclass(eq=True)
 class Message(TelegramType):
+    """This object represents a message.
+
+    https://core.telegram.org/bots/api#message
+    """
     message_id: int
     date: timezone.datetime
     chat: Chat
@@ -622,6 +871,12 @@ class Message(TelegramType):
 
 @dataclass(eq=True)
 class CallbackQuery(TelegramType):
+    """
+    This object represents an incoming callback query from
+    a callback button in an inline keyboard.
+
+    https://core.telegram.org/bots/api#callbackquery
+    """
     id: str
     from_user: User
     chat_instance: str
@@ -633,6 +888,11 @@ class CallbackQuery(TelegramType):
 
 @dataclass(eq=True)
 class Update(TelegramType):
+    """
+    This object represents an incoming update.
+
+    https://core.telegram.org/bots/api#update
+    """
     update_id: int
     message: Message = None
     edited_message: Message = None

@@ -38,7 +38,7 @@ class HandlerTest(TestCase):
         self.update = Update.objects.create(bot=bot, update_id=1)
 
         class TestHandler(Handler):
-            def _match(self, update: Update) -> bool:
+            def match(self, update: Update) -> bool:
                 return True
 
         handler = TestHandler(name="test")

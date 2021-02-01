@@ -22,8 +22,10 @@
 #  THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 # *****************************************************************************
 
+"""This module contains update handlers"""
+
 import logging
-from abc import ABC
+from abc import ABC, abstractmethod
 from typing import Callable, Optional, Type
 
 from celery import group
@@ -35,6 +37,15 @@ log = logging.getLogger(__name__)
 
 
 class Handler(ABC):
+    """The base class for all update handlers
+
+    Args:
+        name: The handler name.
+        callback: The callback function for the handler.
+        async_callback: The Celery task for the handler.
+        form_class: Form class to be used for the handler.
+
+    """
     def __init__(self,
                  name: str,
                  callback: Optional[Callable[[Update], None]] = None,
@@ -46,10 +57,26 @@ class Handler(ABC):
         self.form_class = form_class
         self.form = None
 
+    @abstractmethod
     def match(self, update: Update) -> bool:
+        """
+        This method is called to determine if the handler matches the update.
+        It should always be overridden.
+
+        Args:
+            update: The update.
+
+        Returns:
+            True if the handler matches the update, False otherwise.
+        """
         return False
 
     def handle_update(self, update: Update):
+        """
+        Call callback/async_callback/form
+
+        Should be called only if the handler matches the update.
+        """
         update.handler = self.name
         update.save()
         if self.callback:
@@ -65,11 +92,30 @@ class Handler(ABC):
 
 
 class DefaultHandler(Handler):
+    """This handler matches any update. Use it as the default handler.
+
+    Args:
+        name: The handler name.
+        callback: The callback function for the handler.
+        async_callback: The Celery task for the handler.
+        form_class: Form class to be used for the handler.
+
+    """
     def match(self, update: Update) -> bool:
         return True
 
 
 class CommandHandler(Handler):
+    """Handler class to handle a Telegram command.
+
+    Args:
+        name: The handler name.
+        callback: The callback function for the handler.
+        async_callback: The Celery task for the handler.
+        form_class: Form class to be used for the handler.
+        command: The telegram command to handle.
+
+    """
     def __init__(self, *args, command, **kwargs):
         self.command = command
         super().__init__(*args, **kwargs)

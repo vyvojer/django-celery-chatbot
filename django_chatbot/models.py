@@ -22,6 +22,8 @@
 #  THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 # *****************************************************************************
 
+"""This module contains models representing some Telegram types"""
+
 import logging
 from typing import List, Optional
 
@@ -39,6 +41,31 @@ log = logging.getLogger(__name__)
 
 
 class Bot(models.Model):
+    """Represent a bot
+
+    Don't create or update a bot directly. It is better to add a bot to
+    the ``settings``. To create a bot, firstly add the bot to the
+    ``settings.DJANGO_CHATBOT["BOTS"]`` as a dictionary in format::
+
+        {
+            "NAME"': "@YourBot",
+            "TOKEN": "1234:you_bot_token",
+            "ROOT_HANDLERCONF": "your_app.handlers"
+        }
+
+    Where
+
+    ``NAME`` - unique name (the good idea is to use the real bot name)
+
+    ``TOKEN`` - bot token
+
+    ``ROOT_HANDLERCONF`` - module that contains the ``handlers`` variable. The
+        variable should be a list of ``Handler`` instances.
+
+    Than run ``update_from_settings`` management command. The command creates
+    or updates a ``Bot`` instance.
+
+    """
     name = models.CharField(max_length=40, unique=True)
     token = models.CharField(max_length=50, unique=True)
     token_slug = models.SlugField(max_length=50, unique=True)
@@ -146,6 +173,7 @@ class UserManager(models.Manager):
 
 
 class User(models.Model):
+    """Persistent class for telegram ``User``"""
     user_id = models.BigIntegerField(unique=True, db_index=True)
     is_bot = models.BooleanField(default=False)
     first_name = models.CharField(max_length=40, blank=True)
@@ -169,6 +197,15 @@ class ChatManager(models.Manager):
     def from_telegram(self,
                       bot: Bot,
                       telegram_chat: types.Chat):
+        """Create a model instance from a telegram type instance.
+
+        Args:
+            bot: The bot the chat belongs to.
+            telegram_chat:
+
+        Returns:
+            model instance.
+        """
         defaults = telegram_chat.to_dict()
         defaults['bot'] = bot
         if telegram_chat.photo:
@@ -189,6 +226,7 @@ class ChatManager(models.Manager):
 
 
 class Chat(models.Model):
+    """Persistent class for telegram ``Chat``"""
     bot = models.ForeignKey(Bot, on_delete=models.CASCADE)
     chat_id = models.BigIntegerField(unique=True, db_index=True)
     type = models.CharField(max_length=255)
@@ -262,6 +300,18 @@ class MessageManager(models.Manager):
                       bot: Bot,
                       telegram_message: types.Message,
                       direction: str):
+        """Create a model instance from a telegram type instance.
+
+        Args:
+            bot: The bot the message belongs to.
+            telegram_message: The telegram Message.
+            direction: The message direction. Either Message.DIRECTION_IN or
+                Either Message.DIRECTION_OUT for incoming/outgoing message.
+
+        Returns:
+            model instance.
+
+        """
         defaults = telegram_message.to_dict()
         defaults['direction'] = direction
         if telegram_message.entities:
@@ -304,6 +354,7 @@ class MessageManager(models.Manager):
 
 
 class Message(models.Model):
+    """Persistent class for telegram ``Message``"""
     DIRECTION_IN = "in"
     DIRECTION_OUT = "out"
     DIRECTION_CHOICES = (
@@ -444,6 +495,16 @@ class CallbackQueryManager(models.Manager):
     def from_telegram(self,
                       bot: Bot,
                       telegram_callback_query: types.CallbackQuery):
+        """Create a model instance from a telegram type instance.
+
+        Args:
+            bot: The bot the callback query belongs to.
+            telegram_callback_query: The telegram CallbackQuery.
+
+        Returns:
+            model instance.
+
+        """
         defaults = telegram_callback_query.to_dict()
         defaults.pop('id')
         user = User.objects.from_telegram(telegram_callback_query.from_user)
@@ -463,6 +524,7 @@ class CallbackQueryManager(models.Manager):
 
 
 class CallbackQuery(models.Model):
+    """Persistent class for telegram ``CallbackQuery``"""
     callback_query_id = models.CharField(max_length=100)
     from_user = models.ForeignKey(User, on_delete=models.CASCADE)
     chat_instance = models.CharField(max_length=100)
@@ -501,6 +563,16 @@ class UpdateManager(models.Manager):
     def from_telegram(self,
                       bot: Bot,
                       telegram_update: types.Update):
+        """Create a model instance from a telegram type instance.
+
+        Args:
+            bot: The bot the chat belongs to.
+            telegram_update: Telegram Update.
+
+        Returns:
+            model instance.
+
+        """
         defaults = telegram_update.to_dict()
         defaults.pop('update_id')
         defaults['bot'] = bot
@@ -521,6 +593,7 @@ class UpdateManager(models.Manager):
 
 
 class Update(models.Model):
+    """Persistent class for telegram ``Update``"""
     TYPE_MESSAGE = "message"
     TYPE_EDITED_MESSAGE = "edited_message"
     TYPE_CHANNEL_POST = "channel_post"

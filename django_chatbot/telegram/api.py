@@ -21,6 +21,8 @@
 #  ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR
 #  THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 # *****************************************************************************
+
+"""This module contains classes for Telegram bot API"""
 import json
 import logging
 from dataclasses import dataclass
@@ -41,13 +43,27 @@ SERVER_URL = "https://api.telegram.org"
 
 
 class TelegramError(Exception):
-    """Telegram exception"""
+    """Telegram error
+
+    Args:
+        reason: The error description returned by Telegram.
+        url: The Telegram API url.
+        status_code: Status code of the response.
+        response: The Telegram response.
+        api_code: The error code returned by Telegram.
+    Attributes:
+        reason: The error description returned by Telegram.
+        url: The Telegram API url.
+        status_code: Status code of the response.
+        response: The Telegram response.
+        api_code: The error code returned by Telegram.
+    """
 
     def __init__(self,
-                 reason,
-                 url=None,
-                 status_code=None,
-                 response=None,
+                 reason: str,
+                 url: str = None,
+                 status_code: int = None,
+                 response: requests.Response = None,
                  api_code=None):
         self.reason = reason
         self.url = url
@@ -59,7 +75,7 @@ class TelegramError(Exception):
     def __str__(self):
         return self.reason
 
-    def to_dict(self):
+    def to_dict(self) -> dict:
         return {
             'reason': self.reason,
             'url': self.url,
@@ -71,6 +87,18 @@ class TelegramError(Exception):
 
 @dataclass
 class _Binder:
+    """Helper class for communicating with Telegram Bot API.
+
+    The class sends requests to Telegram API and casts responses
+    to django_chatbot types.
+
+    Args:
+        token: Bot token.
+        method_name: Name of Telegram API method.
+        params: Parameters of Telegram API methods.
+        telegram_type: The 'TelegramType' to which the API response should be
+            cast.
+    """
     token: str
     method_name: str
     params: dict = None
@@ -80,6 +108,14 @@ class _Binder:
         self.url = f"{SERVER_URL}/bot{self.token}/{self.method_name}"
 
     def bind(self):
+        """Request to Telegram API and cast result to :class:`TelegramType`
+
+        Returns:
+            The casted to ``self.telegram_type`` API response.
+
+        Raises:
+            TelegramError: If there is telegram or requests error.
+        """
         if self.params:
             params = {k: v for k, v in self.params.items() if v is not None}
             response = requests.post(url=self.url, data=params)
@@ -99,6 +135,18 @@ class _Binder:
     @staticmethod
     def _parse_response(response: requests.Response,
                         telegram_type: Type[TelegramType]):
+        """Parse response
+
+        Args:
+            response: requests response object.
+            telegram_type: Type to which should be casted.
+
+        Returns:
+            The casted telegram API response
+
+        Raises:
+            TelegramError: If there was telegram or requests error.
+        """
         if response.status_code == 200:
             response_result = response.json()
             result = _Binder._get_result(response_result, telegram_type)
@@ -116,6 +164,17 @@ class _Binder:
     @staticmethod
     def _get_result(response_result: dict,
                     telegram_type: Type[TelegramType]):
+        """Extract result from response dictionary
+
+        Args:
+            response_result: telegram response dictionary
+            telegram_type:
+
+            telegram_type: Type to which should be casted.
+
+        Returns:
+            The casted telegram API response
+        """
         if response_result["ok"]:
             result = response_result["result"]
             if telegram_type is None:
@@ -125,13 +184,36 @@ class _Binder:
 
 
 class Api:
-    def __init__(self, token):
+    """Telegram API client
+
+    Args:
+        token: Bot token
+
+    Attributes:
+        token: Bot token
+
+    """
+    def __init__(self, token: str):
         self.token = token
 
     def _bind(self,
               method_name: str,
               params: dict = None,
               telegram_type: Type[TelegramType] = None):
+        """Make request to API and return casted response.
+
+        Args:
+            method_name: Name of Telegram API method.
+            params: Parameters of Telegram API methods.
+            telegram_type: The 'TelegramType' to which the API response
+                should be casted.
+
+        Returns:
+            Casted response.
+
+        Raises:
+            TelegramError: If there was telegram or requests error.
+        """
         binder = _Binder(
             token=self.token, method_name=method_name,
             params=params, telegram_type=telegram_type
@@ -139,6 +221,13 @@ class Api:
         return binder.bind()
 
     def get_me(self) -> User:
+        """Return basic information about the bot in form of a ``User`` object.
+
+        https://core.telegram.org/bots/api#getme
+
+        Returns:
+            `User` object.
+        """
         return self._bind(
             method_name="getMe",
             telegram_type=User,
@@ -154,6 +243,20 @@ class Api:
                     url: str,
                     max_connections: int = None,
                     allowed_updates: List[str] = None) -> bool:
+        """Use this method to specify a webhook.
+
+        https://core.telegram.org/bots/api#setwebhook
+
+
+
+        Args:
+            url:
+            max_connections:
+            allowed_updates:
+
+        Returns:
+            True on success
+        """
         params = {
             'url': url,
             'max_connections': max_connections,
@@ -179,8 +282,37 @@ class Api:
                          ReplyKeyboardMarkup,
                          ReplyKeyboardRemove,
                      ] = None
-
                      ) -> Message:
+        """Use this method to send text messages.
+
+        https://core.telegram.org/bots/api#sendmessage
+
+        Args:
+            chat_id: Unique identifier for the target chat or username of
+                the target channel (in the format @channelusername).
+            text: Text of the message to be sent, 1-4096 characters
+                after entities parsing.
+            parse_mode: Mode for parsing entities in the message text.
+                One of `MarkdownV2`, `HTML`, `Markdown`.
+            entities: List of special entities that appear in message text,
+                which can be specified instead of parse_mode.
+            disable_web_page_preview: Disables link previews for links
+                in this message.
+            disable_notification: Sends the message silently.
+                Users will receive a notification with no sound.
+            reply_to_message_id: If the message is a reply,
+                ID of the original message.
+            allow_sending_without_reply: Pass True, if the message
+                should be sent even if the specified replied-to message
+                is not found.
+            reply_markup: Additional interface options. A JSON-serialized
+                object for an inline keyboard, custom reply keyboard,
+                instructions to remove reply keyboard or to force
+                a reply from the user.
+
+        Returns:
+            On success, the sent `Message` is returned.
+        """
         if entities:
             entities = [e.to_dict() for e in entities]
         if reply_markup:
@@ -205,6 +337,7 @@ class Api:
 
 @dataclass(eq=True)
 class SendMessageParams:
+    """ Encapsulate send_message parameters"""
     text: str
     parse_mode: str = None
     entities: List[MessageEntity] = None
