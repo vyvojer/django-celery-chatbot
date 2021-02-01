@@ -22,6 +22,8 @@
 #  THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 # *****************************************************************************
 
+""" This module contains class dispatching incoming Telegram updates"""
+
 import importlib
 import logging
 from functools import lru_cache
@@ -37,18 +39,56 @@ log = logging.getLogger(__name__)
 
 @lru_cache()
 def load_handlers() -> Dict[str, List[Handler]]:
+    """Load registered handlers for all bots
+
+    Returns:
+        dictionary like
+        {'first_bot_token':[Handler_1, Handler_2 ... ]
+
+    """
     handlers = {}
     for bot in Bot.objects.all():
         handlers[bot.token_slug] = _load_bot_handlers(bot.root_handlerconf)
     return handlers
 
 
-def _load_bot_handlers(name: str) -> List[Handler]:
-    module = importlib.import_module(name)
+def _load_bot_handlers(module_name: str) -> List[Handler]:
+    """Return handler for a bot.
+
+    django_chatbot loads the module and looks for the variable `handlers`.
+    This should be a list of `Handler` instances.
+
+    Args:
+        module_name: Full module name where to search handlers.
+
+    Returns:
+        list of `Handler`
+
+    """
+    module = importlib.import_module(module_name)
     return module.handlers  # noqa
 
 
 class Dispatcher:
+    """This class dispatches incoming Telegram updates.
+
+    Dispatcher iterates all registered handlers until the handler matches
+    the update. Then Dispatcher calls the handler `handle_update` method.
+
+    Note: To register handlers for a bot, add some module that contains
+        the `handlers` variable. This should be a list of `Handler` instances.
+        Then add the module name to bot 'ROOT_HANDLERCONF' setting.
+
+    Args:
+        update_data: The incoming update dictionary.
+        token_slug: The bot token slug.
+
+    Attributes:
+        bot (Bot): The bot model.
+        update (Update): The update object.
+        handlers: List of handler registered to this bot.
+
+    """
     def __init__(self, update_data: dict, token_slug: str):
         self.bot = Bot.objects.get(token_slug=token_slug)
         self.update = Update.objects.from_telegram(
@@ -57,6 +97,7 @@ class Dispatcher:
         self.handlers = load_handlers()
 
     def dispatch(self):
+        """Dispatch incoming Telegram updates"""
         if form := get_form(self.update):
             form.update(self.update)
             return

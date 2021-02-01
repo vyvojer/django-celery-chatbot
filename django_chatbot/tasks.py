@@ -22,6 +22,8 @@
 #  THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 # *****************************************************************************
 
+"""This module contains all Celery tasks"""
+
 import logging
 
 from celery import Task
@@ -43,5 +45,12 @@ class LoggingTask(Task):
 
 @shared_task(bind=True, ignore_result=True, base=LoggingTask)
 def dispatch(self, update_data: dict, token_slug: str):
+    """This tasks dispatches incoming telegram update.
+
+    Args:
+        update_data: The incoming update dictionary.
+        token_slug: The bot token slug.
+
+    """
     dispatcher = Dispatcher(update_data=update_data, token_slug=token_slug)
     dispatcher.dispatch()

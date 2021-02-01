@@ -130,6 +130,24 @@ class IntegerField(Field):
 
 @dataclass()
 class Form(ABC):
+    """Base class for validation and saving multi-message user input.
+
+    You should override this class.
+
+    Attributes:
+        completed: True if form is completed (All fields are validated
+            and saved.)
+        current_field: The reference to the currently handled field.
+        cleaned_data: The dictionary that contains the saved data in
+            the format::
+            {
+                "field_1_name": "field_1_value",
+                ...
+                "field_n_name": "field_n_value",
+            }
+        fields: The list of `Field` belonging to form
+
+    """
     completed: bool = field(init=False, default=False)
     current_field: Field = field(init=False, default=None)
     cleaned_data: dict = field(init=False, default=None)
@@ -142,6 +160,7 @@ class Form(ABC):
 
     @abstractmethod
     def get_fields(self) -> List[Field]:
+        """Should return list of ``Field`` belonging to the form."""
         pass
 
     def _send_prompt(self, chat: Chat):
@@ -156,6 +175,14 @@ class Form(ABC):
             return self.fields[next_index]
 
     def update(self, update: Update):
+        """Update and save form with the user update.
+
+        Args:
+            update: The telegram update with an user input.
+
+        Returns:
+
+        """
         telegram_object = update.telegram_object
         if self.current_field is None:
             self.current_field = self.fields[0]
@@ -186,8 +213,39 @@ class Form(ABC):
             save_form(root_message, self)
 
     def on_first_update(self, update: Update, cleaned_data: dict):
+        """This method is called on first update.
+
+        Override this method if you want to save some information from
+            the update (for example, a model pk). Use the dictionary
+            :attr:`cleaned_data` as a place to keep that information.
+
+        Args:
+            update: The telegram update with an user input.
+            cleaned_data: The dictionary that contains the saved data in
+                the format
+                {
+                    "field_1_name": "field_1_value",
+                    ...
+                    "field_n_name": "field_n_value",
+                }
+
+        """
         pass
 
     @abstractmethod
     def on_complete(self, update: Update, cleaned_data: dict):
+        """This method is called on form completion.
+
+        You should override this method to process user input.
+
+        Args:
+            cleaned_data: The dictionary that contains the saved data in
+                the format
+                {
+                    "field_1_name": "field_1_value",
+                    ...
+                    "field_n_name": "field_n_value",
+                }
+
+        """
         pass
