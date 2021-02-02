@@ -42,3 +42,5 @@ jobs:
         DB_HOST: localhost
         DB_PORT: 5432
         SECRET_KEY: ${{ secrets.SECRET_KEY }}
+        PAPERTRAIL_ADDRESS: ${{ secrets.PAPERTRAIL_ADDRESS }}
+        PAPERTRAIL_PORT: ${{ secrets.PAPERTRAIL_PORT }}
