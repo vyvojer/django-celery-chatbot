@@ -26,8 +26,7 @@ from celery import Celery
 from django.conf import settings
 
 app = Celery('django_chatbot',
-             broker=settings.CHATBOT_BROKER,
-             backend=settings.CHATBOT_BACKEND,
+             broker=settings.DJANGO_CHATBOT['BROKER'],
              include='django_chatbot.tasks')
 
 # Using a string here means the worker doesn't have to serialize

@@ -86,11 +86,6 @@ DATABASES = {
 }
 
 
-# Django-chatbot
-
-CHATBOT_BROKER = config("CHATBOT_BROKER", default="redis://localhost:6379/0")
-CHATBOT_BACKEND = config("CHATBOT_BACKEND", default="redis://localhost:6379/1")
-
 # Password validation
 # https://docs.djangoproject.com/en/2.2/ref/settings/#auth-password-validators
 
@@ -122,9 +117,11 @@ USE_L10N = True
 
 USE_TZ = True
 
-# django_chatbot
+
+# django-chatbot
 
 DJANGO_CHATBOT = {
+    'BROKER': config("CHATBOT_BROKER", default="redis://localhost:6379/0"),
     'WEBHOOK_DOMAIN': config(
         'CHATBOT_WEBHOOK_DOMAIN', default='https//xxx.ngrok.io'
     ),
