@@ -139,6 +139,9 @@ DJANGO_CHATBOT = {
 
 # Logging
 
+PAPERTRAIL_ADDRESS = config("PAPERTRAIL_ADDRESS")
+PAPERTRAIL_PORT = config("PAPERTRAIL_PORT", cast=int)
+
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -157,7 +160,7 @@ LOGGING = {
             'level': 'DEBUG',
             'class': 'logging.handlers.SysLogHandler',
             'formatter': 'verbose',
-            'address': ('logs6.papertrailapp.com', 12590)
+            'address': (PAPERTRAIL_ADDRESS, PAPERTRAIL_PORT)
         },
     },
     'loggers': {
