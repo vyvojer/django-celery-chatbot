@@ -70,8 +70,8 @@ class Bot(models.Model):
     token = models.CharField(max_length=50, unique=True)
     token_slug = models.SlugField(max_length=50, unique=True)
     root_handlerconf = models.CharField(max_length=100, default="")
-    me = models.JSONField(blank=True, null=True)
-    webhook_info = models.JSONField(blank=True, null=True)
+    _me = models.JSONField(blank=True, null=True)
+    _webhook_info = models.JSONField(blank=True, null=True)
     update_successful = models.BooleanField(default=True)
     me_update_datetime = models.DateTimeField(blank=True, null=True)
     webhook_update_datetime = models.DateTimeField(blank=True, null=True)
@@ -84,55 +84,90 @@ class Bot(models.Model):
         self.token_slug = slugify(self.token)
         super().save(force_insert, force_update, using, update_fields)
 
+    @property
+    def me(self) -> Optional[types.User]:
+        if self._me:
+            return types.User.from_dict(self._me)
+
+    @property
+    def webhook_info(self) -> Optional[types.WebhookInfo]:
+        if self._webhook_info:
+            return types.WebhookInfo.from_dict(self._webhook_info)
+
     @cached_property
     def api(self):
         api = Api(token=self.token)
         return api
 
-    def get_me(self):
+    def get_me(self) -> types.User:
+        """Update the bot :attr:`me` from Telegram.
+
+        Returns:
+            information about the bot.
+
+        Raises:
+            TelegramError
+
+        """
         try:
             me = self.api.get_me()
         except TelegramError as error:
             self.update_successful = False
             self.save()
-            return {
-                "ok": False,
-                "result": error.to_dict()
-            }
+            raise error
         else:
-            self.me = me.to_dict()
+            self._me = me.to_dict()
             self.update_successful = True
             self.me_update_datetime = timezone.now()
             self.save()
-            return {
-                "ok": True,
-                "result": self.me
-            }
+            return self.me
 
-    def get_webhook_info(self):
+    def get_webhook_info(self) -> types.WebhookInfo:
+        """Update the bot :attr:`webhook_info` from Telegram.
+
+        Returns:
+            the bot WebhookInfo.
+
+        Raises:
+            TelegramError
+
+        """
         try:
             webhook_info = self.api.get_webhook_info()
         except TelegramError as error:
             self.update_successful = False
             self.save()
-            return {
-                "ok": False,
-                "result": error.to_dict()
-            }
+            raise error
         else:
-            self.webhook_info = webhook_info.to_dict()
+            self._webhook_info = webhook_info.to_dict()
             self.update_successful = True
             self.webhook_update_datetime = timezone.now()
             self.save()
-            return {
-                "ok": True,
-                "result": self.webhook_info
-            }
+            return self.webhook_info
 
     def set_webhook(self,
                     domain: str = None,
                     max_connections: int = None,
-                    allowed_updates: List[str] = None):
+                    allowed_updates: List[str] = None) -> bool:
+        """Set webhook on Telegram.
+
+        This method calls telegram ``setWebhook`` method.
+        https://core.telegram.org/bots/api#setwebhook
+
+        Args:
+            domain: The ``django_chatbot`` domain.
+            max_connections: Maximum allowed number of simultaneous HTTPS
+                connections to the webhook for update delivery.
+            allowed_updates: A JSON-serialized list of the update types
+                you want your bot to receive
+
+        Returns:
+            True if webhook was set successfully.
+
+        Raises:
+            TelegramError
+
+        """
         if domain is None:
             domain = settings.DJANGO_CHATBOT['WEBHOOK_DOMAIN']
         url = domain + reverse(
@@ -155,12 +190,9 @@ class Bot(models.Model):
         except TelegramError as error:
             self.update_successful = False
             self.save()
-            return {
-                "ok": False,
-                "result": error.to_dict()
-            }
+            raise error
         else:
-            return {"ok": result}
+            return result
 
 
 class UserManager(models.Manager):

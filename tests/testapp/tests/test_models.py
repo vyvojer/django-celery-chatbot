@@ -45,36 +45,64 @@ class BotTestCase(TestCase):
 
         self.assertEqual(bot.token_slug, "123xxx-yyyy")
 
+    def test_me(self):
+        bot = Bot(
+            _me={
+                'id': 7,
+                'is_bot': True,
+                'first_name': 'first_name',
+                'username': 'username'
+            }
+        )
+
+        self.assertEqual(
+            bot.me,
+            TelegramUser(
+                id=7,
+                is_bot=True,
+                first_name='first_name',
+                username='username',
+            )
+        )
+
+    def test_webhook_info(self):
+        bot = Bot(
+            _webhook_info={
+                'url': 'https://example.com',
+                'has_custom_certificate': False,
+                'pending_update_count': 0
+            }
+        )
+
+        self.assertEqual(
+            bot.webhook_info,
+            WebhookInfo(
+                url='https://example.com',
+                has_custom_certificate=False,
+                pending_update_count=0
+            )
+        )
+
     @patch("django_chatbot.models.Api")
     @patch("django_chatbot.models.timezone.now")
     def test_get_me__successfull(self, mocked_now, mocked_api):
         now = timezone.datetime(2000, 1, 1, tzinfo=timezone.utc)
         mocked_now.return_value = now
-        mocked_api.return_value.get_me.return_value = TelegramUser(
+        telegram_user = TelegramUser(
             id=7,
             is_bot=True,
             first_name="first_name",
             username="username",
         )
+        mocked_api.return_value.get_me.return_value = telegram_user
 
         me = self.bot.get_me()
 
         mocked_api.assert_called_with(token="bot-token")
-        self.assertEqual(
-            me,
-            {
-                'ok': True,
-                'result': {
-                    'id': 7,
-                    'is_bot': True,
-                    'first_name': 'first_name',
-                    'username': 'username'
-                },
-            }
-        )
+        self.assertEqual(me, telegram_user)
         self.bot.refresh_from_db()
         self.assertEqual(
-            self.bot.me,
+            self.bot._me,
             {
                 'id': 7,
                 'is_bot': True,
@@ -91,33 +119,20 @@ class BotTestCase(TestCase):
     def test_get_me__telegram_error(self, mocked_now, mocked_api):
         now = timezone.datetime(2000, 1, 1, tzinfo=timezone.utc)
         mocked_now.return_value = now
-        mocked_api.return_value.get_me.side_effect = [
-            TelegramError(
-                reason="Not found",
-                url="url",
-                status_code="404",
-                response="response",
-                api_code="404"
-            )
-        ]
-
-        me = self.bot.get_me()
-
-        mocked_api.assert_called_with(token="bot-token")
-        self.assertEqual(
-            me,
-            {
-                'ok': False,
-                'result': {
-                    "reason": "Not found",
-                    "url": "url",
-                    "status_code": "404",
-                    "response": "response",
-                    "api_code": "404"
-                },
-            }
+        response = Mock()
+        error = TelegramError(
+            reason="Not found",
+            url="url",
+            status_code=404,
+            response=response,
+            api_code="404"
         )
-        self.bot.refresh_from_db()
+        mocked_api.return_value.get_me.side_effect = [error]
+
+        with self.assertRaises(TelegramError) as raised:
+            self.bot.get_me()
+
+        self.assertEqual(raised.exception, error)
         self.assertEqual(self.bot.update_successful, False)
         self.assertEqual(self.bot.me_update_datetime, None)
 
@@ -126,29 +141,20 @@ class BotTestCase(TestCase):
     def test_get_webhook_info__successfull(self, mocked_now, mocked_api):
         now = timezone.datetime(2000, 1, 1, tzinfo=timezone.utc)
         mocked_now.return_value = now
-        mocked_api.return_value.get_webhook_info.return_value = WebhookInfo(
+        webhook_info = WebhookInfo(
             url="https://example.com",
             has_custom_certificate=False,
             pending_update_count=0
         )
+        mocked_api.return_value.get_webhook_info.return_value = webhook_info
 
         info = self.bot.get_webhook_info()
 
         mocked_api.assert_called_with(token="bot-token")
-        self.assertEqual(
-            info,
-            {
-                'ok': True,
-                'result': {
-                    'url': 'https://example.com',
-                    'has_custom_certificate': False,
-                    'pending_update_count': 0
-                },
-            }
-        )
+        self.assertEqual(info, webhook_info)
         self.bot.refresh_from_db()
         self.assertEqual(
-            self.bot.webhook_info,
+            self.bot._webhook_info,
             {
                 'url': 'https://example.com',
                 'has_custom_certificate': False,
@@ -164,32 +170,21 @@ class BotTestCase(TestCase):
     def test_get_webhook_info__telegram_error(self, mocked_now, mocked_api):
         now = timezone.datetime(2000, 1, 1, tzinfo=timezone.utc)
         mocked_now.return_value = now
-        mocked_api.return_value.get_webhook_info.side_effect = [
-            TelegramError(
-                reason="Not found",
-                url="url",
-                status_code="404",
-                response="response",
-                api_code="404"
-            )
-        ]
-
-        info = self.bot.get_webhook_info()
-
-        mocked_api.assert_called_with(token="bot-token")
-        self.assertEqual(
-            info,
-            {
-                'ok': False,
-                'result': {
-                    "reason": "Not found",
-                    "url": "url",
-                    "status_code": "404",
-                    "response": "response",
-                    "api_code": "404"
-                },
-            }
+        error = TelegramError(
+            reason="Not found",
+            url="url",
+            status_code=404,
+            response=Mock(),
+            api_code="404"
         )
+
+        mocked_api.return_value.get_webhook_info.side_effect = [error]
+
+        with self.assertRaises(TelegramError) as raised:
+            self.bot.get_webhook_info()
+
+        self.assertEqual(raised.exception, error)
+        mocked_api.assert_called_with(token="bot-token")
         self.bot.refresh_from_db()
         self.assertEqual(self.bot.update_successful, False)
         self.assertEqual(self.bot.me_update_datetime, None)
@@ -213,7 +208,7 @@ class BotTestCase(TestCase):
             max_connections=42,
             allowed_updates=["message"],
         )
-        self.assertEqual(result, {"ok": True})
+        self.assertEqual(result, True)
         self.bot.refresh_from_db()
         self.assertEqual(self.bot.update_successful, True)
         self.assertEqual(self.bot.webhook_update_datetime, now)
@@ -223,21 +218,21 @@ class BotTestCase(TestCase):
     def test_set_webhook__telegram_error(self, mocked_now, mocked_api):
         now = timezone.datetime(2000, 1, 1, tzinfo=timezone.utc)
         mocked_now.return_value = now
-        mocked_api.return_value.set_webhook.side_effect = [
-            TelegramError(
-                reason="Not found",
-                url="url",
-                status_code="404",
-                response="response",
-                api_code="404"
-            )
-        ]
-
-        result = self.bot.set_webhook(
-            domain='http://example.com',
-            max_connections=42,
-            allowed_updates=["message"],
+        error = TelegramError(
+            reason="Not found",
+            url="url",
+            status_code=404,
+            response=Mock(),
+            api_code="404"
         )
+        mocked_api.return_value.set_webhook.side_effect = [error]
+
+        with self.assertRaises(TelegramError) as raised:
+            self.bot.set_webhook(
+                domain='http://example.com',
+                max_connections=42,
+                allowed_updates=["message"],
+            )
 
         mocked_api.assert_called_with(token="bot-token")
         mocked_api.return_value.set_webhook.assert_called_with(
@@ -245,16 +240,7 @@ class BotTestCase(TestCase):
             max_connections=42,
             allowed_updates=["message"],
         )
-        self.assertEqual(result, {
-            "ok": False,
-            'result': {
-                "reason": "Not found",
-                "url": "url",
-                "status_code": "404",
-                "response": "response",
-                "api_code": "404"
-            },
-        })
+        self.assertEqual(raised.exception, error)
         self.bot.refresh_from_db()
         self.assertEqual(self.bot.update_successful, False)
         self.assertEqual(self.bot.webhook_update_datetime, None)
