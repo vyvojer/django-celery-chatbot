@@ -150,12 +150,10 @@ class Form(ABC):
     """
     completed: bool = field(init=False, default=False)
     current_field: Field = field(init=False, default=None)
-    cleaned_data: dict = field(init=False, default=None)
+    cleaned_data: dict = field(init=False, default_factory=dict)
     fields: List[Field] = field(init=False, default=None)
 
     def __post_init__(self):
-        if self.cleaned_data is None:
-            self.cleaned_data = {}
         self.fields = self.get_fields()
 
     @abstractmethod
@@ -239,6 +237,8 @@ class Form(ABC):
         You should override this method to process user input.
 
         Args:
+            update: The last user input. You can use it to get telegram User,
+                for example.
             cleaned_data: The dictionary that contains the saved data in
                 the format
                 {
