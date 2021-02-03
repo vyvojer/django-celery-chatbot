@@ -135,44 +135,45 @@ DJANGO_CHATBOT = {
 }
 
 # Logging
+USE_PAPERTRAIL = config("USE_PAPERTRAIL", default=False, cast=bool)
 
-PAPERTRAIL_ADDRESS = config("PAPERTRAIL_ADDRESS")
-PAPERTRAIL_PORT = config("PAPERTRAIL_PORT", cast=int)
-
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'formatters': {
-        'verbose': {
-            'format': '{asctime} [{levelname}] [{filename}:{lineno} - {funcName}() ] {name}: {message}',  # noqa
-            'style': '{',
+if USE_PAPERTRAIL:
+    PAPERTRAIL_ADDRESS = config("PAPERTRAIL_ADDRESS")
+    PAPERTRAIL_PORT = config("PAPERTRAIL_PORT", cast=int)
+    LOGGING = {
+        'version': 1,
+        'disable_existing_loggers': False,
+        'formatters': {
+            'verbose': {
+                'format': '{asctime} [{levelname}] [{filename}:{lineno} - {funcName}() ] {name}: {message}',  # noqa
+                'style': '{',
+            },
+            'simple': {
+                'format': '{levelname} {message}',
+                'style': '{',
+            },
         },
-        'simple': {
-            'format': '{levelname} {message}',
-            'style': '{',
+        'handlers': {
+            'SysLog': {
+                'level': 'DEBUG',
+                'class': 'logging.handlers.SysLogHandler',
+                'formatter': 'verbose',
+                'address': (PAPERTRAIL_ADDRESS, PAPERTRAIL_PORT)
+            },
         },
-    },
-    'handlers': {
-        'SysLog': {
-            'level': 'DEBUG',
-            'class': 'logging.handlers.SysLogHandler',
-            'formatter': 'verbose',
-            'address': (PAPERTRAIL_ADDRESS, PAPERTRAIL_PORT)
+        'loggers': {
+            'testapp': {
+                'handlers': ['SysLog'],
+                'level': 'DEBUG',
+                'propagate': True,
+            },
+            'django_chatbot': {
+                'handlers': ['SysLog'],
+                'level': 'DEBUG',
+                'propagate': True,
+            },
         },
-    },
-    'loggers': {
-        'testapp': {
-            'handlers': ['SysLog'],
-            'level': 'DEBUG',
-            'propagate': True,
-        },
-        'django_chatbot': {
-            'handlers': ['SysLog'],
-            'level': 'DEBUG',
-            'propagate': True,
-        },
-    },
-}
+    }
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/2.2/howto/static-files/
