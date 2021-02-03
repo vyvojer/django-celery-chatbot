@@ -136,10 +136,10 @@ DJANGO_CHATBOT = {
 
 # Logging
 USE_PAPERTRAIL = config("USE_PAPERTRAIL", default=False, cast=bool)
-PAPERTRAIL_ADDRESS = config("PAPERTRAIL_ADDRESS")
-PAPERTRAIL_PORT = config("PAPERTRAIL_PORT", cast=int)
 
 if USE_PAPERTRAIL:
+    PAPERTRAIL_ADDRESS = config("PAPERTRAIL_ADDRESS")
+    PAPERTRAIL_PORT = config("PAPERTRAIL_PORT", cast=int)
     LOGGING = {
         'version': 1,
         'disable_existing_loggers': False,
