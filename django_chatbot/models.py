@@ -216,7 +216,6 @@ class User(models.Model):
     can_read_all_group_messages = models.BooleanField(default=False)
     supports_inline_queries = models.BooleanField(default=False)
 
-
     objects = UserManager()
 
     def __str__(self):
