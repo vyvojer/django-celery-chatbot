@@ -9,7 +9,7 @@ from django_chatbot.models import (
     Message,
     Chat,
     Update,
-    User
+    User, _update_defaults
 )
 from django_chatbot.telegram.api import TelegramError, Api
 from django_chatbot.telegram.types import (
@@ -481,6 +481,11 @@ class MessageManagerTestCase(TestCase):
             from_user=TelegramUser(id=40, is_bot=False),
             animation=animation,
             reply_markup=reply_markup,
+            left_chat_member=TelegramUser(id=41, is_bot=False),
+            new_chat_members=[
+                TelegramUser(id=42, is_bot=False),
+                TelegramUser(id=43, is_bot=False),
+            ]
         )
         direction = Message.DIRECTION_OUT
 
@@ -493,8 +498,7 @@ class MessageManagerTestCase(TestCase):
         chat = Chat.objects.first()
         self.assertEqual(chat.chat_id, 42)
         self.assertEqual(chat.type, "private")
-        user = User.objects.first()
-        self.assertEqual(user.user_id, 40)
+        user = User.objects.get(user_id=40)
         self.assertEqual(user.is_bot, False)
         message = Message.objects.first()
         self.assertEqual(message.direction, Message.DIRECTION_OUT)
@@ -503,6 +507,11 @@ class MessageManagerTestCase(TestCase):
         self.assertEqual(message.from_user, user)
         self.assertEqual(message.animation, animation)
         self.assertEqual(message.reply_markup, reply_markup)
+        self.assertEqual(message.left_chat_member.user_id, 41)
+        new_chat_member_1 = User.objects.get(user_id=42)
+        new_chat_member_2 = User.objects.get(user_id=43)
+        self.assertIn(new_chat_member_1, message.new_chat_members.all())
+        self.assertIn(new_chat_member_2, message.new_chat_members.all())
 
     def test_get_message(self):
         chat = Chat.objects.create(
@@ -678,3 +687,21 @@ class CallbackQueryManagerTestCase(TestCase):
         self.assertEqual(callback_query.message, message)
         self.assertEqual(callback_query.chat.chat_id, 42)
         self.assertEqual(callback_query.text, "Data from button callback")
+
+
+class UpdateDefaultsTestCase(TestCase):
+    class Something:
+        some_attr = None
+
+    def test_atr_not_none(self):
+        something = self.Something()
+        something.some_attr = "something"
+        defaults = {'some_attr': "something"}
+
+        _update_defaults(
+            something,
+            defaults,
+            "some_attr",
+        )
+
+        self.assertEqual(defaults, {'_some_attr': "something"})
