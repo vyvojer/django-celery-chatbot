@@ -240,15 +240,9 @@ class ChatManager(models.Manager):
         """
         defaults = telegram_chat.to_dict()
         defaults['bot'] = bot
-        if telegram_chat.photo:
-            defaults['_photo'] = defaults['photo']
-            defaults.pop('photo')
-        if telegram_chat.permissions:
-            defaults['_permissions'] = defaults['permissions']
-            defaults.pop('permissions')
-        if telegram_chat.photo:
-            defaults['_location'] = defaults['location']
-            defaults.pop('location')
+        _update_defaults(telegram_chat, defaults, 'photo')
+        _update_defaults(telegram_chat, defaults, 'permissions')
+        _update_defaults(telegram_chat, defaults, 'location')
         defaults.pop('id')
         chat, _ = self.update_or_create(
             chat_id=telegram_chat.id,
@@ -346,15 +340,30 @@ class MessageManager(models.Manager):
         """
         defaults = telegram_message.to_dict()
         defaults['direction'] = direction
-        if telegram_message.entities:
-            defaults['_entities'] = defaults['entities']
-            defaults.pop('entities')
-        if telegram_message.animation:
-            defaults['_animation'] = defaults['animation']
-            defaults.pop('animation')
-        if telegram_message.reply_markup:
-            defaults['_reply_markup'] = defaults['reply_markup']
-            defaults.pop('reply_markup')
+        _update_defaults(telegram_message, defaults, 'entities')
+        _update_defaults(telegram_message, defaults, 'animation')
+        _update_defaults(telegram_message, defaults, 'audio')
+        _update_defaults(telegram_message, defaults, 'document')
+        _update_defaults(telegram_message, defaults, 'photo')
+        _update_defaults(telegram_message, defaults, 'sticker')
+        _update_defaults(telegram_message, defaults, 'video')
+        _update_defaults(telegram_message, defaults, 'video_note')
+        _update_defaults(telegram_message, defaults, 'voice')
+        _update_defaults(telegram_message, defaults, 'caption_entities')
+        _update_defaults(telegram_message, defaults, 'contact')
+        _update_defaults(telegram_message, defaults, 'dice')
+        _update_defaults(telegram_message, defaults, 'game')
+        _update_defaults(telegram_message, defaults, 'poll')
+        _update_defaults(telegram_message, defaults, 'venue')
+        _update_defaults(telegram_message, defaults, 'location')
+        _update_defaults(telegram_message, defaults, 'new_chat_photo')
+        _update_defaults(telegram_message, defaults, 'invoice')
+        _update_defaults(telegram_message, defaults, 'successful_payment')
+        _update_defaults(telegram_message, defaults, 'passport_data')
+        _update_defaults(
+            telegram_message, defaults, 'proximity_alert_triggered'
+        )
+        _update_defaults(telegram_message, defaults, 'reply_markup')
 
         chat = Chat.objects.from_telegram(
             bot=bot, telegram_chat=telegram_message.chat
@@ -367,11 +376,25 @@ class MessageManager(models.Manager):
             defaults['reply_to_message'] = self.get_message(
                 telegram_message.reply_to_message
             )
+        if telegram_message.left_chat_member:
+            user = User.objects.from_telegram(
+                telegram_message.left_chat_member
+            )
+            defaults['left_chat_member'] = user
+        if telegram_message.new_chat_members:
+            defaults.pop('new_chat_members')
         defaults.pop('message_id')
-        message, _ = self.update_or_create(
+        message, created = self.update_or_create(
             message_id=telegram_message.message_id,
             defaults=defaults
         )
+        if created and telegram_message.new_chat_members:
+            members = [
+                User.objects.from_telegram(telegram_user) for telegram_user
+                in telegram_message.new_chat_members
+            ]
+            for member in members:
+                message.new_chat_members.add(member)
         return message
 
     def get_message(self, telegram_message: types.Message):
@@ -435,27 +458,34 @@ class Message(models.Model):
     text = models.TextField(blank=True)
     _entities = models.JSONField(blank=True, null=True)
     _animation = models.JSONField(blank=True, null=True)
-    # TODO    audio: Audio = None
-    # TODO    document: Document = None
-    # TODO     photo: List[PhotoSize] = None
-    # TODO    sticker: Sticker = None
-    # TODO    video: Video = None
-    # TODO    video_note: VideoNote = None
-    # TODO    voice: Voice = None
+    _audio = models.JSONField(blank=True, null=True)
+    _document = models.JSONField(blank=True, null=True)
+    _photo = models.JSONField(blank=True, null=True)
+    _sticker = models.JSONField(blank=True, null=True)
+    _video = models.JSONField(blank=True, null=True)
+    _video_note = models.JSONField(blank=True, null=True)
+    _voice = models.JSONField(blank=True, null=True)
     caption = models.CharField(max_length=1024, blank=True)
-    # TODO    caption_entities: List[MessageEntity] = None
-    # TODO    contact: Contact = None
-    # TODO    dice: Dice = None
-    # TODO    game: Game = None
-    # TODO    poll: Poll = None
-    # TODO    venue: Venue = None
-    location = models.JSONField(blank=True, null=True)
-    # TODO    new_chat_members: List[User] = None
+    _caption_entities = models.JSONField(blank=True, null=True)
+    _contact = models.JSONField(blank=True, null=True)
+    _dice = models.JSONField(blank=True, null=True)
+    _game = models.JSONField(blank=True, null=True)
+    _poll = models.JSONField(blank=True, null=True)
+    _venue = models.JSONField(blank=True, null=True)
+    _location = models.JSONField(blank=True, null=True)
+    new_chat_members = models.ManyToManyField(
+        User,
+        related_name="messages_new_chat",
+    )
     left_chat_member = models.ForeignKey(
-        User, null=True, blank=True, on_delete=models.SET_NULL
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="messages_left_chat",
     )
     new_chat_title = models.CharField(max_length=255, blank=True)
-    # TODO    new_chat_photo: List[PhotoSize] = None
+    _new_chat_photo = models.CharField(max_length=255, blank=True)
     delete_chat_photo = models.BooleanField(default=True)
     group_chat_created = models.BooleanField(default=True)
     supergroup_chat_created = models.BooleanField(default=True)
@@ -466,12 +496,11 @@ class Message(models.Model):
         'self', null=True, blank=True, on_delete=models.SET_NULL,
         related_name="pinned_to"
     )
-    # TODO    invoice: Invoice = None
-    # TODO    successful_payment: SuccessfulPayment = None
+    _invoice = models.JSONField(blank=True, null=True)
+    _successful_payment = models.JSONField(blank=True, null=True)
     connected_website = models.CharField(max_length=255, blank=True)
-
-    # TODO    passport_data: PassportData = None
-    # TODO    proximity_alert_triggered: ProximityAlertTriggered = None
+    _passport_data = models.JSONField(blank=True, null=True)
+    _proximity_alert_triggered = models.JSONField(blank=True, null=True)
     _reply_markup = models.JSONField(blank=True, null=True)
     extra = models.JSONField(default=dict)
 
@@ -500,6 +529,92 @@ class Message(models.Model):
     @cached_property
     def animation(self) -> types.Animation:
         return types.Animation.from_dict(self._animation)
+
+    @cached_property
+    def audio(self) -> types.Audio:
+        return types.Audio.from_dict(self._audio)
+
+    @cached_property
+    def document(self) -> types.Document:
+        return types.Document.from_dict(self._document)
+
+    @cached_property
+    def photo(self) -> List[types.PhotoSize]:
+        return [types.PhotoSize.from_dict(p) for p in self._photo]
+
+    @cached_property
+    def sticker(self) -> types.Sticker:
+        return types.Sticker.from_dict(self._sticker)
+
+    @cached_property
+    def video(self) -> types.Video:
+        return types.Video.from_dict(self._video)
+
+    @cached_property
+    def video_note(self) -> types.VideoNote:
+        return types.VideoNote.from_dict(self._video_note)
+
+    @cached_property
+    def voice(self) -> types.Voice:
+        return types.Voice.from_dict(self._voice)
+
+    @cached_property
+    def caption_entities(self):
+        if not self._caption_entities:
+            return None
+        entities = [types.MessageEntity.from_dict(e) for e in
+                    self._caption_entities]  # noqa
+        for entity in entities:
+            entity.text = self.text[
+                          entity.offset: entity.offset + entity.length
+                          ]
+        return entities
+
+    @cached_property
+    def contact(self) -> types.Contact:
+        return types.Contact.from_dict(self._contact)
+
+    @cached_property
+    def dice(self) -> types.Dice:
+        return types.Dice.from_dict(self._dice)
+
+    @cached_property
+    def game(self) -> types.Game:
+        return types.Game.from_dict(self._game)
+
+    @cached_property
+    def poll(self) -> types.Poll:
+        return types.Poll.from_dict(self._poll)
+
+    @cached_property
+    def venue(self) -> types.Venue:
+        return types.Venue.from_dict(self._venue)
+
+    @cached_property
+    def location(self) -> types.Location:
+        return types.Location.from_dict(self._location)
+
+    @cached_property
+    def new_chat_photo(self) -> List[types.PhotoSize]:
+        return [types.PhotoSize.from_dict(p) for p in self._new_chat_photo]
+
+    @cached_property
+    def invoice(self) -> types.Invoice:
+        return types.Invoice.from_dict(self._invoice)
+
+    @cached_property
+    def successful_payment(self) -> types.SuccessfulPayment:
+        return types.SuccessfulPayment.from_dict(self._successful_payment)
+
+    @cached_property
+    def passport_data(self) -> types.PassportData:
+        return types.PassportData.from_dict(self._passport_data)
+
+    @cached_property
+    def proximity_alert_triggered(self) -> types.ProximityAlertTriggered:
+        return types.ProximityAlertTriggered.from_dict(
+            self._proximity_alert_triggered
+        )
 
     @cached_property
     def reply_markup(self) -> types.InlineKeyboardMarkup:
@@ -666,3 +781,11 @@ class Update(models.Model):
             return self.message
         elif self.type == self.TYPE_CALLBACK_QUERY:
             return self.callback_query
+
+
+def _update_defaults(telegram_object: object, defaults: dict, attr: str):
+    """Add underscore a JSON field name."""
+
+    if getattr(telegram_object, attr):
+        defaults[f"_{attr}"] = defaults[attr]
+        defaults.pop(attr)
