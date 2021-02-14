@@ -28,6 +28,12 @@ from dataclasses import dataclass, field
 from typing import Any, List
 
 from django.core.exceptions import ValidationError
+from django.core.validators import (
+    MaxLengthValidator,
+    MaxValueValidator,
+    MinLengthValidator,
+    MinValueValidator
+)
 from django.utils.translation import gettext as _
 
 from django_chatbot.models import Chat, Update
@@ -47,37 +53,50 @@ class Field:
     required: bool = True
     prompt: str = None
     inline_keyboard: List[List[InlineKeyboardButton]] = None
+    default_validators: list = field(
+        default_factory=list, repr=False, init=False
+    )
     validators: list = field(default_factory=list, repr=False)
-    error_messages: dict = field(default_factory=dict, repr=False)
+    custom_error_messages: dict = field(default_factory=dict, repr=False)
+    errors: list = field(default_factory=list, init=False)
     value: Any = field(default=None, init=False)
     is_bound: bool = field(default=False, init=False)
     is_valid: bool = field(default=False, init=False)
-    default_error_messages: dict = field(
-        default_factory=dict, init=False, repr=False)
-    errors: list = field(default_factory=list, init=False)
 
     def __post_init__(self):
-        self.default_error_messages.update(self.error_messages)
-        self.error_messages = self.default_error_messages
-
-    def update_prompt(self, update: Update, cleaned_data: dict):
-        self.prompt = self.get_prompt(update, cleaned_data)
-        self.inline_keyboard = self.get_inline_keyboard(update, cleaned_data)
+        self.validators += self.default_validators
 
     def get_prompt(self, update: Update, cleaned_data: dict):
-        if self.errors:
-            errors = self.errors[0].message
-            self.prompt = f"{errors}\n{self.prompt}"
         return self.prompt
+
+    def get_text(self, prompt: str, error_text: str):
+        if error_text:
+            return f"{error_text}\n\n{prompt}"
+        else:
+            return prompt
+
+    def get_error_text(self):
+        return "\n".join(self.get_error_messages())
+
+    def get_error_messages(self):
+        error_messages = []
+        for error in self.errors:
+            error_messages.append([message for message in error][0])
+        return error_messages
 
     def get_inline_keyboard(self, update: Update, cleaned_data: dict):
         return self.inline_keyboard
 
-    def to_send_message_params(self):
-        text = self.prompt
-        if self.inline_keyboard:
+    def get_prompt_message_params(self,
+                                  update: Update,
+                                  cleaned_data: dict):
+        prompt = self.get_prompt(update, cleaned_data)
+        error_text = self.get_error_text()
+        inline_keyboard = self.get_inline_keyboard(update, cleaned_data)
+        text = self.get_text(prompt, error_text)
+        if inline_keyboard:
             reply_markup = InlineKeyboardMarkup(
-                inline_keyboard=self.inline_keyboard
+                inline_keyboard=inline_keyboard
             )
         else:
             reply_markup = None
@@ -90,6 +109,16 @@ class Field:
     def to_python(self, value):
         return value
 
+    def _run_validators(self, value):
+        errors = []
+        for validator in self.validators:
+            try:
+                validator(value)
+            except ValidationError as e:
+                errors.extend(e.error_list)
+        if errors:
+            raise ValidationError(errors)
+
     def validate(self, value, update: Update, cleaned_data: dict):
         pass
 
@@ -99,23 +128,52 @@ class Field:
         try:
             value = self.to_python(value)
             self.value = value
+            self._run_validators(value)
             self.validate(value, update, cleaned_data)
         except ValidationError as error:
-            self.errors.append(error)
+            self.errors.extend(error.error_list)
+            self._update_error_messages()
         else:
             self.is_bound = True
             self.is_valid = True
 
+    def _update_error_messages(self):
+        for error in [error for error in self.errors if error.code]:
+            if message := self.custom_error_messages.get(error.code):
+                error.message = message
 
+
+@dataclass()
 class CharField(Field):
-    pass
+    min_length: int = None
+    max_length: int = None
 
-
-class IntegerField(Field):
     def __post_init__(self):
-        self.default_error_messages = {
-            'invalid': _('Enter a whole number.'),
-        }
+        if self.min_length is not None:
+            self.default_validators.append(
+                MinLengthValidator(limit_value=self.min_length)
+            )
+        if self.max_length is not None:
+            self.default_validators.append(
+                MaxLengthValidator(limit_value=self.max_length)
+            )
+        super().__post_init__()
+
+
+@dataclass
+class IntegerField(Field):
+    min_value: int = None
+    max_value: int = None
+
+    def __post_init__(self):
+        if self.min_value is not None:
+            self.default_validators.append(
+                MinValueValidator(limit_value=self.min_value)
+            )
+        if self.max_value is not None:
+            self.default_validators.append(
+                MaxValueValidator(limit_value=self.max_value)
+            )
         super().__post_init__()
 
     def to_python(self, value):
@@ -123,7 +181,7 @@ class IntegerField(Field):
             value = int(value)
         except (ValueError, TypeError):
             raise ValidationError(
-                self.error_messages['invalid'], code='invalid'
+                _('Enter a whole number.'), code='invalid',
             )
         return int(value)
 
@@ -161,9 +219,11 @@ class Form(ABC):
         """Should return list of ``Field`` belonging to the form."""
         pass
 
-    def _send_prompt(self, chat: Chat):
+    def _send_prompt(self, chat: Chat, update: Update, cleaned_data: dict):
         message = chat.reply(
-            **self.current_field.to_send_message_params().to_dict()
+            **self.current_field.get_prompt_message_params(
+                update, cleaned_data
+            ).to_dict()
         )
         return message
 
@@ -184,9 +244,10 @@ class Form(ABC):
         telegram_object = update.telegram_object
         if self.current_field is None:
             self.current_field = self.fields[0]
-            self.current_field.update_prompt(update, self.cleaned_data)
             self.on_first_update(update, self.cleaned_data)
-            prompt_message = self._send_prompt(telegram_object.chat)
+            prompt_message = self._send_prompt(
+                telegram_object.chat, update, self.cleaned_data
+            )
             save_form(prompt_message, self)
         else:
             self.current_field.clean(
@@ -198,15 +259,17 @@ class Form(ABC):
                     self.current_field.name] = self.current_field.value
                 if next_field := self._next_field():
                     self.current_field = next_field
-                    self.current_field.update_prompt(update, self.cleaned_data)
-                    prompt_message = self._send_prompt(telegram_object.chat)
+                    prompt_message = self._send_prompt(
+                        telegram_object.chat, update, self.cleaned_data
+                    )
                     set_form_root(prompt_message, root_message)
                 else:
                     self.completed = True
                     self.on_complete(update, self.cleaned_data)
             else:
-                self.current_field.update_prompt(update, self.cleaned_data)
-                prompt_message = self._send_prompt(telegram_object.chat)
+                prompt_message = self._send_prompt(
+                    telegram_object.chat, update, self.cleaned_data
+                )
                 set_form_root(prompt_message, root_message)
             save_form(root_message, self)
 

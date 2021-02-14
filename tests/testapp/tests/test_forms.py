@@ -51,54 +51,6 @@ class FieldTestCase(TestCase):
         self.update = Mock()
         self.cleaned_data = None
 
-    def test_get_prompt(self):
-        field = forms.Field(name='field', prompt="Input:")
-
-        field.update_prompt(self.update, self.cleaned_data)
-
-        self.assertEqual(field.prompt, "Input:")
-
-    def test_get_prompt__custom(self):
-        class CustomField(forms.Field):
-            def get_prompt(self, *args, **kwargs):
-                return "Ok, input value:"
-
-        field = CustomField(name='field', prompt="Input:")
-
-        field.update_prompt(self.update, self.cleaned_data)
-
-        self.assertEqual(field.prompt, "Ok, input value:")
-
-    def test_get_inline_keyboard(self):
-        field = forms.Field(
-            name='field',
-            prompt="Input:",
-            inline_keyboard=[
-                [InlineKeyboardButton("Yes", callback_data="yes")],
-                [InlineKeyboardButton("No", callback_data="No")]
-            ],
-        )
-
-        field.update_prompt(self.update, self.cleaned_data)
-
-        self.assertEqual(field.inline_keyboard, [
-            [InlineKeyboardButton("Yes", callback_data="yes")],
-            [InlineKeyboardButton("No", callback_data="No")]
-        ])
-
-    def test_get_inline_keyboard__custom(self):
-        class CustomField(forms.Field):
-            def get_inline_keyboard(self, *args, **kwargs):
-                return [[InlineKeyboardButton("No", callback_data="no")]]
-
-        field = CustomField(name='field', prompt="Input:")
-
-        field.update_prompt(self.update, self.cleaned_data)
-
-        self.assertEqual(field.inline_keyboard, [
-            [InlineKeyboardButton("No", callback_data="no")]
-        ])
-
     def test_to_prompt_message__text(self):
         field = forms.Field(
             name='field',
@@ -109,7 +61,7 @@ class FieldTestCase(TestCase):
             ],
         )
 
-        message = field.to_send_message_params()
+        message = field.get_prompt_message_params(Mock(), Mock())
 
         self.assertEqual(
             message.reply_markup.inline_keyboard, [
@@ -119,7 +71,7 @@ class FieldTestCase(TestCase):
         )
         self.assertEqual(message.text, "Input:")
 
-    def test_clean__invalid(self, ):
+    def test_clean__validate_invalid(self):
         error = ValidationError("Wrong input!")
 
         class CustomField(forms.Field):
@@ -134,18 +86,67 @@ class FieldTestCase(TestCase):
         self.assertEqual(field.is_valid, False)
         self.assertEqual(field.errors, [error])
 
-    def test_get_prompt__invalid(self, ):
-        error = ValidationError("Wrong input!")
+    def test_clean__validators_invalid(self):
+        first_error = ValidationError("First error", code="first_error")
+        second_error = ValidationError("Second error", code="second_error")
 
-        class CustomField(forms.Field):
-            pass
+        def first_validator(value):
+            raise first_error
 
-        field = CustomField(name='field', prompt='Input value:')
-        field.errors = [error]
+        def second_validatator(value):
+            raise second_error
 
-        prompt = field.get_prompt(self.update, self.cleaned_data)
+        field = forms.Field(
+            name="field",
+            validators=[first_validator, second_validatator],
+        )
 
-        self.assertEqual(prompt, "Wrong input!\nInput value:")
+        field.clean("some value", Mock(), Mock())
+
+        self.assertEqual(field.value, "some value")
+        self.assertEqual(field.is_bound, False)
+        self.assertEqual(field.is_valid, False)
+        self.assertEqual(field.errors[0].code, "first_error")
+        self.assertEqual(field.errors[1].code, "second_error")
+        self.assertEqual(field.errors[0].message, "First error")
+        self.assertEqual(field.errors[1].message, "Second error")
+
+    def test_clean__use_custom_error_messages(self):
+        first_error = ValidationError("First error", code="first_error")
+        second_error = ValidationError("Second error", code="second_error")
+
+        def first_validator(value):
+            raise first_error
+
+        def second_validatator(value):
+            raise second_error
+
+        field = forms.Field(
+            name="field",
+            validators=[first_validator, second_validatator],
+            custom_error_messages={
+                'second_error': "Custom error message!"
+            }
+        )
+
+        field.clean("some value", Mock(), Mock())
+
+        self.assertEqual(field.errors[0].message, "First error")
+        self.assertEqual(field.errors[1].message, "Custom error message!")
+
+    def test_get_error_text(self, ):
+        error_1 = ValidationError("Wrong input!", code="wrong")
+        error_2 = ValidationError("Bad input!", code="bad")
+        error_3 = ValidationError(["Another error"])
+
+        field = forms.Field(name='field', prompt='Input value:')
+        field.errors = [error_1, error_2, error_3]
+
+        error_text = field.get_error_text()
+
+        self.assertEqual(
+            error_text,
+            "Wrong input!\nBad input!\nAnother error")
 
 
 class IntegerFieldTestCase(TestCase):
@@ -166,6 +167,94 @@ class IntegerFieldTestCase(TestCase):
             field.to_python('4b')
         error = raised.exception
         self.assertEqual(error.code, 'invalid')
+
+    def test_max_value__valid_value(self):
+        update = Mock()
+        cleaned_data = {}
+        field = forms.IntegerField(name="int_field", max_value=10)
+
+        field.clean('10', update, cleaned_data)
+
+        self.assertEqual(field.value, 10)
+        self.assertEqual(field.is_bound, True)
+
+    def test_max_value__invalid_value(self):
+        update = Mock()
+        cleaned_data = {}
+        field = forms.IntegerField(name="int_field", max_value=10)
+
+        field.clean('11', update, cleaned_data)
+
+        self.assertEqual(field.value, 11)
+        self.assertEqual(field.is_bound, False)
+        self.assertEqual(field.errors[0].code, 'max_value')
+
+    def test_min_value__valid_value(self):
+        update = Mock()
+        cleaned_data = {}
+        field = forms.IntegerField(name="int_field", min_value=0)
+
+        field.clean('10', update, cleaned_data)
+
+        self.assertEqual(field.value, 10)
+        self.assertEqual(field.is_bound, True)
+
+    def test_min_value__invalid_value(self):
+        update = Mock()
+        cleaned_data = {}
+        field = forms.IntegerField(name="int_field", min_value=0)
+
+        field.clean('-1', update, cleaned_data)
+
+        self.assertEqual(field.value, -1)
+        self.assertEqual(field.is_bound, False)
+        self.assertEqual(field.errors[0].code, 'min_value')
+
+
+class CharField(TestCase):
+    def test_max_length__valid_value(self):
+        update = Mock()
+        cleaned_data = {}
+        field = forms.CharField(name="field", max_length=3)
+
+        field.clean('123', update, cleaned_data)
+
+        self.assertEqual(field.value, '123')
+        self.assertEqual(field.is_bound, True)
+        self.assertEqual(field.is_valid, True)
+
+    def test_max_length__invalid_value(self):
+        update = Mock()
+        cleaned_data = {}
+        field = forms.CharField(name="field", max_length=3)
+
+        field.clean('1234', update, cleaned_data)
+
+        self.assertEqual(field.value, '1234')
+        self.assertEqual(field.is_bound, False)
+        self.assertEqual(field.is_valid, False)
+
+    def test_min_length__valid_value(self):
+        update = Mock()
+        cleaned_data = {}
+        field = forms.CharField(name="field", min_length=3)
+
+        field.clean('123', update, cleaned_data)
+
+        self.assertEqual(field.value, '123')
+        self.assertEqual(field.is_bound, True)
+        self.assertEqual(field.is_valid, True)
+
+    def test_min_length__invalid_value(self):
+        update = Mock()
+        cleaned_data = {}
+        field = forms.CharField(name="field", min_length=3)
+
+        field.clean('12', update, cleaned_data)
+
+        self.assertEqual(field.value, '12')
+        self.assertEqual(field.is_bound, False)
+        self.assertEqual(field.is_valid, False)
 
 
 class SecondField(forms.IntegerField):
@@ -385,7 +474,7 @@ class FormTestCase(TestCase):
 
         mocked_send_message.assert_called_with(
             chat_id=140,
-            text='Enter a whole number.\nEnter first field:',
+            text='Enter a whole number.\n\nEnter first field:',
             parse_mode=None
         )
 
