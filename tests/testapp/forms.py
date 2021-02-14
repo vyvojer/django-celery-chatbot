@@ -45,8 +45,18 @@ class AddNote(Form):
 
     def get_fields(self):
         fields = [
-            CharField(name="title", prompt="Input title:"),
-            CharField(name="text", prompt="Input text:"),
+            CharField(
+                name="title",
+                prompt="Input title:",
+                min_length=5,
+                max_length=15
+            ),
+            CharField(
+                name="text",
+                prompt="Input text:",
+                min_length=10,
+                max_length=100
+            ),
             self.ConfirmSaveField(name="confirm", inline_keyboard=[
                 [InlineKeyboardButton("Yes", callback_data="yes"),
                  InlineKeyboardButton("No", callback_data="cancel")]])
@@ -95,7 +105,9 @@ class IdToDeleteField(IntegerField):
 class DeleteNoteForm(Form):
     def get_fields(self):
         fields = [
-            IdToDeleteField(name='note_id', prompt="Input note ID"),
+            IdToDeleteField(
+                name='note_id', prompt="Input note ID", min_value=0,
+            ),
             ConfirmDeleteField(name="confirm", inline_keyboard=[
                 [InlineKeyboardButton("Yes", callback_data="yes"),
                  InlineKeyboardButton("No", callback_data="cancel")]])
