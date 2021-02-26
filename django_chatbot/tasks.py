@@ -52,5 +52,5 @@ def dispatch(self, update_data: dict, token_slug: str):
         token_slug: The bot token slug.
 
     """
-    dispatcher = Dispatcher(update_data=update_data, token_slug=token_slug)
-    dispatcher.dispatch()
+    dispatcher = Dispatcher(token_slug=token_slug)
+    dispatcher.dispatch(update_data=update_data)

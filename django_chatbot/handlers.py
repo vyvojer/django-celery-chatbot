@@ -44,18 +44,21 @@ class Handler(ABC):
         callback: The callback function for the handler.
         async_callback: The Celery task for the handler.
         form_class: Form class to be used for the handler.
+        suppress_form:
 
     """
     def __init__(self,
                  name: str,
                  callback: Optional[Callable[[Update], None]] = None,
                  async_callback=None,
-                 form_class: Type[Form] = None):
+                 form_class: Type[Form] = None,
+                 suppress_form: bool = False):
         self.name = name
         self.callback = callback
         self.async_callback = async_callback
         self.form_class = form_class
         self.form = None
+        self.suppress_form = suppress_form
 
     @abstractmethod
     def match(self, update: Update) -> bool:

@@ -8,6 +8,7 @@ from django_chatbot.services.dispatcher import (
     load_handlers,
 )
 from django_chatbot.models import Bot
+from django_chatbot.forms import Form
 
 handlers = [
     "handler1",
@@ -91,13 +92,9 @@ class DispatcherTestCase(TestCase):
         mocked_from_telegram.return_value = update
         mocked_from_dict.return_value = telegram_update
 
-        dispatcher = Dispatcher(self.update_data, self.token_slug)
+        dispatcher = Dispatcher(self.token_slug)
 
         self.assertEqual(dispatcher.bot, self.bot)
-        self.assertEqual(dispatcher.update, update)
-        mocked_from_telegram.assert_called_with(
-            bot=self.bot, telegram_update=telegram_update
-        )
 
     @patch("django_chatbot.services.dispatcher.Update.objects.from_telegram")
     @patch("django_chatbot.services.dispatcher.TelegramUpdate.from_dict")
@@ -118,9 +115,9 @@ class DispatcherTestCase(TestCase):
             'token1': [handler_3],
             'token2': [handler_1, handler_2, handler_3],
         }
-        dispatcher = Dispatcher(update_data={}, token_slug='token2')
+        dispatcher = Dispatcher(token_slug='token2')
 
-        dispatcher.dispatch()
+        dispatcher.dispatch(update_data={})
 
         handler_1.match.assert_called_with(update=update)
         handler_2.match.assert_called_with(update=update)
@@ -128,3 +125,55 @@ class DispatcherTestCase(TestCase):
         handler_1.handle_update.assert_not_called()
         handler_2.handle_update.assert_called_with(update=update)
         handler_3.handle_update.assert_not_called()
+
+    @patch("django_chatbot.services.dispatcher.get_form")
+    @patch("django_chatbot.services.dispatcher.Update.objects.from_telegram")
+    @patch("django_chatbot.services.dispatcher.TelegramUpdate.from_dict")
+    def test_casual_handler_have_does_not_take_precedence_over_form(
+            self,
+            mocked_from_dict: Mock,
+            mocked_from_telegram: Mock,
+            mocked_get_form: Mock,
+            mocked_load_handlers: Mock,
+    ):
+        update = Mock()
+        telegram_update = Mock()
+        mocked_from_telegram.return_value = update
+        mocked_from_dict.return_value = telegram_update
+        form = Mock(spec=Form)
+        mocked_get_form.return_value = form
+        handler = Mock(**{'match.return_value': True}, suppress_form=False)
+        mocked_load_handlers.return_value = {'token2': [handler]}
+
+        dispatcher = Dispatcher(token_slug='token2')
+
+        dispatcher.dispatch(update_data={})
+
+        handler.match.assert_not_called()
+        form.update.assert_called_with(update=update)
+
+    @patch("django_chatbot.services.dispatcher.get_form")
+    @patch("django_chatbot.services.dispatcher.Update.objects.from_telegram")
+    @patch("django_chatbot.services.dispatcher.TelegramUpdate.from_dict")
+    def test_handler_with_suppress_form_flag_takes_precedence_over_form(
+            self,
+            mocked_from_dict: Mock,
+            mocked_from_telegram: Mock,
+            mocked_get_form: Mock,
+            mocked_load_handlers: Mock,
+    ):
+        update = Mock()
+        telegram_update = Mock()
+        mocked_from_telegram.return_value = update
+        mocked_from_dict.return_value = telegram_update
+        form = Mock(spec=Form)
+        mocked_get_form.return_value = form
+        handler = Mock(**{'match.return_value': True}, suppress_form=True)
+        mocked_load_handlers.return_value = {'token2': [handler]}
+
+        dispatcher = Dispatcher(token_slug='token2')
+
+        dispatcher.dispatch(update_data={})
+
+        handler.match.assert_called_with(update=update)
+        form.update.assert_not_called()

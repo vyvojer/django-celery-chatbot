@@ -27,7 +27,7 @@
 import importlib
 import logging
 from functools import lru_cache
-from typing import Dict, List
+from typing import Dict, Iterable, List
 
 from django_chatbot.models import Bot, Update
 from django_chatbot.handlers import Handler
@@ -89,19 +89,40 @@ class Dispatcher:
         handlers: List of handler registered to this bot.
 
     """
-    def __init__(self, update_data: dict, token_slug: str):
+
+    def __init__(self, token_slug: str):
         self.bot = Bot.objects.get(token_slug=token_slug)
-        self.update = Update.objects.from_telegram(
+        self.handlers = load_handlers()[self.bot.token_slug]
+
+    def dispatch(self, update_data: dict):
+        """Dispatch incoming Telegram updates"""
+        update = Update.objects.from_telegram(
             bot=self.bot, telegram_update=TelegramUpdate.from_dict(update_data)
         )
-        self.handlers = load_handlers()
+        if form := get_form(update=update):
+            if not self._check_handlers(
+                update=update,
+                handlers=[h for h in self.handlers if h.suppress_form]
+            ):
+                form.update(update=update)
+        else:
+            self._check_handlers(update, self.handlers)
 
-    def dispatch(self):
-        """Dispatch incoming Telegram updates"""
-        if form := get_form(self.update):
-            form.update(self.update)
-            return
-        for handler in self.handlers[self.bot.token_slug]:
-            if handler.match(update=self.update):
-                handler.handle_update(update=self.update)
-                return
+    @staticmethod
+    def _check_handlers(update: Update,
+                        handlers: Iterable[Handler]) -> bool:
+        """Check if one of the handlers match the update
+
+        Args:
+            update: The update to check.
+            handlers: The handlers to check.
+
+        Returns:
+            True if one of the handlers match the update.
+
+        """
+        for handler in handlers:
+            if handler.match(update=update):
+                handler.handle_update(update=update)
+                return True
+        return False
