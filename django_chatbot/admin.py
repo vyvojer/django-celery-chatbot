@@ -23,7 +23,7 @@
 # *****************************************************************************
 
 from django.contrib import admin
-from .models import Bot, CallbackQuery, Chat, Message, Update, User
+from .models import Bot, CallbackQuery, Chat, Form, Message, Update, User
 
 
 @admin.register(Bot)
@@ -83,4 +83,11 @@ class UserAdmin(admin.ModelAdmin):
     list_display = [
         "user_id",
         "username",
+    ]
+
+
+@admin.register(Form)
+class FormAdmin(admin.ModelAdmin):
+    list_display = [
+        "id",
     ]

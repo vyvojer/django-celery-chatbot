@@ -126,7 +126,7 @@ class DispatcherTestCase(TestCase):
         handler_2.handle_update.assert_called_with(update=update)
         handler_3.handle_update.assert_not_called()
 
-    @patch("django_chatbot.services.dispatcher.get_form")
+    @patch("django_chatbot.services.dispatcher.Form.objects.get_form")
     @patch("django_chatbot.services.dispatcher.Update.objects.from_telegram")
     @patch("django_chatbot.services.dispatcher.TelegramUpdate.from_dict")
     def test_casual_handler_have_does_not_take_precedence_over_form(
@@ -140,8 +140,9 @@ class DispatcherTestCase(TestCase):
         telegram_update = Mock()
         mocked_from_telegram.return_value = update
         mocked_from_dict.return_value = telegram_update
-        form = Mock(spec=Form)
-        mocked_get_form.return_value = form
+        form = Mock()
+        form_keeper = Mock(form=form)
+        mocked_get_form.return_value = form_keeper
         handler = Mock(**{'match.return_value': True}, suppress_form=False)
         mocked_load_handlers.return_value = {'token2': [handler]}
 
@@ -152,7 +153,7 @@ class DispatcherTestCase(TestCase):
         handler.match.assert_not_called()
         form.update.assert_called_with(update=update)
 
-    @patch("django_chatbot.services.dispatcher.get_form")
+    @patch("django_chatbot.services.dispatcher.Form.objects.get_form")
     @patch("django_chatbot.services.dispatcher.Update.objects.from_telegram")
     @patch("django_chatbot.services.dispatcher.TelegramUpdate.from_dict")
     def test_handler_with_suppress_form_flag_takes_precedence_over_form(
@@ -166,8 +167,8 @@ class DispatcherTestCase(TestCase):
         telegram_update = Mock()
         mocked_from_telegram.return_value = update
         mocked_from_dict.return_value = telegram_update
-        form = Mock(spec=Form)
-        mocked_get_form.return_value = form
+        form_keeper = Mock(spec=Form)
+        mocked_get_form.return_value = form_keeper
         handler = Mock(**{'match.return_value': True}, suppress_form=True)
         mocked_load_handlers.return_value = {'token2': [handler]}
 
@@ -176,4 +177,4 @@ class DispatcherTestCase(TestCase):
         dispatcher.dispatch(update_data={})
 
         handler.match.assert_called_with(update=update)
-        form.update.assert_not_called()
+        form_keeper.update.assert_not_called()

@@ -27,6 +27,7 @@
 import logging
 from typing import List, Optional
 
+import jsonpickle
 from django.conf import settings
 from django.db import models
 from django.urls import reverse
@@ -321,6 +322,39 @@ class Chat(models.Model):
         return message
 
 
+class FormManager(models.Manager):
+    def get_form(self, update: 'Update'):
+        if message := update.message:
+            try:
+                previous = message.get_previous_by_date(
+                    chat_id=message.chat_id, direction=Message.DIRECTION_OUT
+                )
+            except Message.DoesNotExist:
+                return None
+            else:
+                if previous.form:
+                    return previous.form
+        elif callback_query := update.callback_query:
+            if callback_query.message.form:
+                return callback_query.message.form
+
+
+class Form(models.Model):
+    _form = models.TextField()
+
+    objects = FormManager()
+
+    @property
+    def form(self):
+        form = jsonpickle.decode(self._form)
+        form.form_keeper = self
+        return form
+
+    @form.setter
+    def form(self, value):
+        self._form = jsonpickle.encode(value)
+
+
 class MessageManager(models.Manager):
     def from_telegram(self,
                       bot: Bot,
@@ -503,6 +537,9 @@ class Message(models.Model):
     _proximity_alert_triggered = models.JSONField(blank=True, null=True)
     _reply_markup = models.JSONField(blank=True, null=True)
     extra = models.JSONField(default=dict)
+    form = models.ForeignKey(
+        Form, blank=True, null=True, on_delete=models.SET_NULL
+    )
 
     objects = MessageManager()
 

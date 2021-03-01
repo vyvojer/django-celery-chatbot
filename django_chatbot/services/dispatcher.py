@@ -29,10 +29,9 @@ import logging
 from functools import lru_cache
 from typing import Dict, Iterable, List
 
-from django_chatbot.models import Bot, Update
+from django_chatbot.models import Bot, Form, Update
 from django_chatbot.handlers import Handler
 from django_chatbot.telegram.types import Update as TelegramUpdate
-from django_chatbot.services.forms import get_form
 
 log = logging.getLogger(__name__)
 
@@ -99,12 +98,12 @@ class Dispatcher:
         update = Update.objects.from_telegram(
             bot=self.bot, telegram_update=TelegramUpdate.from_dict(update_data)
         )
-        if form := get_form(update=update):
+        if form_keeper := Form.objects.get_form(update):
             if not self._check_handlers(
                 update=update,
                 handlers=[h for h in self.handlers if h.suppress_form]
             ):
-                form.update(update=update)
+                form_keeper.form.update(update=update)
         else:
             self._check_handlers(update, self.handlers)
 

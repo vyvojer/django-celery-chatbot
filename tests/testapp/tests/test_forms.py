@@ -33,10 +33,10 @@ from django_chatbot.models import (
     Bot,
     CallbackQuery,
     Chat,
+    Form as FormKeeper,
     Message,
     Update,
     User)
-from django_chatbot.services.forms import load_form
 from django_chatbot.telegram.api import Api
 from django_chatbot.telegram.types import (
     Chat as TelegramChat,
@@ -44,6 +44,7 @@ from django_chatbot.telegram.types import (
     Message as TelegramMessage,
     User as TelegramUser,
 )
+from django_chatbot.forms import FormHandler
 
 
 class FieldTestCase(TestCase):
@@ -211,7 +212,7 @@ class IntegerFieldTestCase(TestCase):
         self.assertEqual(field.errors[0].code, 'min_value')
 
 
-class CharField(TestCase):
+class CharFieldTestCase(TestCase):
     def test_max_length__valid_value(self):
         update = Mock()
         cleaned_data = {}
@@ -257,6 +258,55 @@ class CharField(TestCase):
         self.assertEqual(field.is_valid, False)
 
 
+class FormHandlerTestCase(TestCase):
+    def setUp(self) -> None:
+        self.bot = Bot.objects.create(
+            name="bot",
+            token="token",
+        )
+        self.chat = Chat.objects.create(
+            bot=self.bot,
+            chat_id=140,
+            type='private',
+        )
+
+    def test_match_command_valid(self):
+        last_input = Message.objects.create(
+            direction=Message.DIRECTION_IN,
+            message_id=5,
+            date=timezone.datetime(2000, 1, 1, 5, tzinfo=timezone.utc),
+            chat=self.chat,
+            text='/previous',
+            _entities=[{"type": "bot_command", "length": 9, "offset": 0}],
+        )
+        update = Update.objects.create(
+            bot=self.bot,
+            update_id=1,
+            message=last_input,
+        )
+        handler = FormHandler(callback=Mock(), command="/previous")
+
+        self.assertEqual(handler.match(update), True)
+
+    def test_command_invalid(self):
+        last_input = Message.objects.create(
+            direction=Message.DIRECTION_IN,
+            message_id=5,
+            date=timezone.datetime(2000, 1, 1, 5, tzinfo=timezone.utc),
+            chat=self.chat,
+            text='/previous',
+            _entities=[{"type": "bot_command", "length": 9, "offset": 0}],
+        )
+        update = Update.objects.create(
+            bot=self.bot,
+            update_id=1,
+            message=last_input,
+        )
+        handler = FormHandler(callback=Mock(), command="/cancel")
+
+        self.assertEqual(handler.match(update), False)
+
+
 class SecondField(forms.IntegerField):
     def get_prompt(self, update, cleaned_data):
         first = cleaned_data['first_field']
@@ -277,7 +327,7 @@ class TestForm(forms.Form):
         ]
         return fields
 
-    def on_first_update(self, update, cleaned_data):
+    def on_init(self, update, cleaned_data):
         self.cleaned_data['chat_id'] = update.message.chat.chat_id
 
     def on_complete(self, update, cleaned_data):
@@ -348,23 +398,37 @@ class FormTestCase(TestCase):
         self.assertEqual(form.current_field, form.fields[0])
         self.assertEqual(form.cleaned_data, {'chat_id': 140})
         self.assertEqual(form.completed, False)
-        out_messages = Message.objects.filter(direction=Message.DIRECTION_OUT)
-        first_prompt = out_messages[0]
-        self.assertEqual(first_prompt.chat, self.chat)
-        self.assertEqual(first_prompt.direction, Message.DIRECTION_OUT)
-        self.assertEqual(first_prompt.text, 'Enter first field:')
-        deserialized = load_form(first_prompt)
-        self.assertEqual(deserialized.current_field, deserialized.fields[0])
+        prompt = Message.objects.get(direction=Message.DIRECTION_OUT)
+        self.assertEqual(prompt.chat, self.chat)
+        self.assertEqual(prompt.direction, Message.DIRECTION_OUT)
+        self.assertEqual(prompt.text, 'Enter first field:')
+        form_keeper = FormKeeper.objects.first()
+        self.assertEqual(prompt.form, form_keeper)
+        self.assertEqual(
+            form_keeper.form.current_field,
+            form_keeper.form.fields[0])
 
     @patch.object(Api, 'send_message')
     def test_update__first_input(self, mocked_send_message: Mock):
-        first_prompt = Message.objects.create(
+        form = TestForm()
+        first_field = forms.IntegerField(
+            name="first_field", prompt="Enter first field:"
+        )
+        second_field = SecondField(
+            name="second_field", prompt="Enter second field:"
+        )
+        form.fields = [first_field, second_field]
+        form.current_field = first_field
+        form_keeper = FormKeeper.objects.create(form=form)
+        form.form_keeper = form_keeper
+
+        Message.objects.create(
             message_id=2,
             direction=Message.DIRECTION_OUT,
             date=timezone.datetime(2000, 1, 1, 2, tzinfo=timezone.utc),
             chat=self.chat,
             text='Enter first field:',
-            extra={'form': {}}
+            form=form_keeper,
         )
         first_input = Message.objects.create(
             direction=Message.DIRECTION_IN,
@@ -385,15 +449,6 @@ class FormTestCase(TestCase):
             chat=TelegramChat(id=140, type="private"),
             text='Enter second field:',
         )
-        form = TestForm()
-        first_field = forms.IntegerField(
-            name="first_field", prompt="Enter first field:"
-        )
-        second_field = SecondField(
-            name="second_field", prompt="Enter second field:"
-        )
-        form.fields = [first_field, second_field]
-        form.current_field = first_field
 
         form.update(update)
 
@@ -409,29 +464,35 @@ class FormTestCase(TestCase):
         self.assertEqual(form.completed, False)
 
         out_messages = Message.objects.filter(direction=Message.DIRECTION_OUT)
-        first_prompt = out_messages[0]
         last_prompt = out_messages[1]
-        deserialized = load_form(first_prompt)
-        self.assertEqual(deserialized, form)
+        form_keeper.refresh_from_db()
+        self.assertEqual(form_keeper.form, form)
         self.assertEqual(last_prompt.chat, self.chat)
         self.assertEqual(last_prompt.direction, Message.DIRECTION_OUT)
         self.assertEqual(last_prompt.text, 'Enter second field:')
-        self.assertEqual(
-            last_prompt.extra,
-            {
-                'form_root_pk': first_prompt.pk
-            }
-        )
+        self.assertEqual(last_prompt.form, form_keeper)
 
     @patch.object(Api, 'send_message')
     def test_update__first_input__invalid(self, mocked_send_message: Mock):
-        first_prompt = Message.objects.create(
+        form = TestForm()
+        first_field = forms.IntegerField(
+            name="first_field", prompt="Enter first field:"
+        )
+        second_field = SecondField(
+            name="second_field", prompt="Enter second field:"
+        )
+        form.fields = [first_field, second_field]
+        form.current_field = first_field
+        form_keeper = FormKeeper.objects.create(form=form)
+        form.form_keeper = form_keeper
+
+        Message.objects.create(
             message_id=2,
             direction=Message.DIRECTION_OUT,
             date=timezone.datetime(2000, 1, 1, 2, tzinfo=timezone.utc),
             chat=self.chat,
             text='Enter first field:',
-            extra={'form': {}}
+            form=form_keeper,
         )
         first_input = Message.objects.create(
             direction=Message.DIRECTION_IN,
@@ -452,15 +513,6 @@ class FormTestCase(TestCase):
             chat=TelegramChat(id=140, type="private"),
             text='Enter a whole number.\nEnter first field:',
         )
-        form = TestForm()
-        first_field = forms.IntegerField(
-            name="first_field", prompt="Enter first field:"
-        )
-        second_field = SecondField(
-            name="second_field", prompt="Enter second field:"
-        )
-        form.fields = [first_field, second_field]
-        form.current_field = first_field
 
         form.update(update)
 
@@ -479,27 +531,38 @@ class FormTestCase(TestCase):
         )
 
         out_messages = Message.objects.filter(direction=Message.DIRECTION_OUT)
-        first_prompt = out_messages[0]
         last_prompt = out_messages[1]
         self.assertEqual(last_prompt.chat, self.chat)
         self.assertEqual(last_prompt.direction, Message.DIRECTION_OUT)
         self.assertEqual(last_prompt.text,
                          'Enter a whole number.\nEnter first field:')
-        self.assertEqual(
-            last_prompt.extra,
-            {
-                'form_root_pk': first_prompt.pk
-            }
-        )
+        self.assertEqual(last_prompt.form, form_keeper)
 
     @patch.object(TestForm, 'on_complete')
     def test_update__last_input(self, mocked_on_complete: Mock):
+        form = TestForm()
+        first_field = forms.IntegerField(
+            name="first_field", prompt="Enter first field:"
+        )
+        first_field.value = 41
+        first_field.is_valid = True
+        first_field.is_bound = True
+        second_field = SecondField(
+            name="second_field", prompt="Enter second field:"
+        )
+        form.fields = [first_field, second_field]
+        form.current_field = second_field
+        form.cleaned_data = {'first_field': 41}
+        form_keeper = FormKeeper.objects.create(form=form)
+        form.form_keeper = form_keeper
+
         first_prompt = Message.objects.create(
             message_id=2,
             direction=Message.DIRECTION_OUT,
             date=timezone.datetime(2000, 1, 1, 2, tzinfo=timezone.utc),
             chat=self.chat,
             text='Enter first field:',
+            form=form_keeper,
         )
         Message.objects.create(
             message_id=4,
@@ -521,6 +584,24 @@ class FormTestCase(TestCase):
             update_id=1,
             message=last_input,
         )
+
+        form.update(update)
+
+        self.assertEqual(form.fields[0].value, 41)
+        self.assertEqual(form.fields[0].is_valid, True)
+        self.assertEqual(form.fields[1].value, 42)
+        self.assertEqual(form.fields[1].is_valid, True)
+        self.assertEqual(form.completed, True)
+
+        form_keeper.refresh_from_db()
+        self.assertEqual(form_keeper.form, form)
+        mocked_on_complete.assert_called_with(update, form.cleaned_data)
+
+    @patch.object(Api, 'send_message')
+    def test_update__last_input__previous_command(
+            self, mocked_send_message: Mock
+    ):
+        """Previous command must return to previous (first) field input"""
         form = TestForm()
         first_field = forms.IntegerField(
             name="first_field", prompt="Enter first field:"
@@ -533,29 +614,78 @@ class FormTestCase(TestCase):
         )
         form.fields = [first_field, second_field]
         form.current_field = second_field
+        form.cleaned_data = {'first_field': 41}
+        form_keeper = FormKeeper.objects.create(form=form)
+        form.form_keeper = form_keeper
+
+        first_prompt = Message.objects.create(
+            message_id=2,
+            direction=Message.DIRECTION_OUT,
+            date=timezone.datetime(2000, 1, 1, 2, tzinfo=timezone.utc),
+            chat=self.chat,
+            text='Enter first field:',
+            form=form_keeper,
+        )
+        Message.objects.create(
+            message_id=4,
+            direction=Message.DIRECTION_OUT,
+            date=timezone.datetime(2000, 1, 1, 4, tzinfo=timezone.utc),
+            chat=self.chat,
+            text='Enter second field:',
+            extra={'form_root_pk': first_prompt.pk}
+        )
+        last_input = Message.objects.create(
+            direction=Message.DIRECTION_IN,
+            message_id=5,
+            date=timezone.datetime(2000, 1, 1, 5, tzinfo=timezone.utc),
+            chat=self.chat,
+            text='/previous',
+            _entities=[{"type": "bot_command", "length": 9, "offset": 0}],
+        )
+        update = Update.objects.create(
+            bot=self.bot,
+            update_id=1,
+            message=last_input,
+        )
+        mocked_send_message.return_value = TelegramMessage(
+            message_id=2,
+            date=timezone.datetime(2000, 1, 1, 2, tzinfo=timezone.utc),
+            from_user=TelegramUser(id=1, is_bot=True),
+            chat=TelegramChat(id=140, type="private"),
+            text='Enter first field:',
+        )
 
         form.update(update)
 
-        self.assertEqual(form.fields[0].value, 41)
-        self.assertEqual(form.fields[0].is_valid, True)
-        self.assertEqual(form.fields[1].value, 42)
-        self.assertEqual(form.fields[1].is_valid, True)
-        self.assertEqual(form.completed, True)
+        self.assertEqual(form.fields[0].value, None)
+        self.assertEqual(form.fields[0].is_bound, False)
+        self.assertEqual(form.fields[1].value, None)
+        self.assertEqual(form.fields[1].is_bound, False)
+        self.assertEqual(form.current_field, form.fields[0])
+        self.assertEqual(form.completed, False)
 
         first_prompt.refresh_from_db()
-        deserialized = load_form(first_prompt)
-        self.assertEqual(deserialized, form)
-        mocked_on_complete.assert_called_with(update, form.cleaned_data)
+        self.assertEqual(first_prompt.chat, self.chat)
+        self.assertEqual(first_prompt.direction, Message.DIRECTION_OUT)
+        self.assertEqual(first_prompt.text, 'Enter first field:')
+        form_keeper.refresh_from_db()
+        self.assertEqual(
+            form_keeper.form.current_field, form_keeper.form.fields[0]
+        )
 
     def test_update__callback_query(self):
         user = User.objects.create(user_id=40, is_bot=False)
+        form = InlineForm()
+        form.current_field = form.fields[0]
+        form_keeper = FormKeeper.objects.create(form=form)
+        form.form_keeper = form_keeper
         prompt = Message.objects.create(
             message_id=2,
             direction=Message.DIRECTION_OUT,
             date=timezone.datetime(2000, 1, 1, 2, tzinfo=timezone.utc),
             chat=self.chat,
             text='Yes?:',
-            extra={'form': {}}
+            form=form_keeper,
         )
         input = CallbackQuery.objects.create(
             callback_query_id="1",
@@ -571,9 +701,6 @@ class FormTestCase(TestCase):
             callback_query=input,
         )
 
-        form = InlineForm()
-        form.current_field = form.fields[0]
-
         form.update(update)
 
         self.assertEqual(form.fields[0].value, "yes")
@@ -581,5 +708,5 @@ class FormTestCase(TestCase):
         self.assertEqual(form.completed, True)
         self.assertEqual(form.cleaned_data, {'field': 'yes'})
         prompt.refresh_from_db()
-        deserialized = load_form(prompt)
-        self.assertEqual(deserialized, form)
+        form_keeper.refresh_from_db()
+        self.assertEqual(form_keeper.form, form)
