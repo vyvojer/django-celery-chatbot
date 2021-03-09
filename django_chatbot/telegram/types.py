@@ -23,9 +23,9 @@
 # *****************************************************************************
 
 """Contains telegram types"""
-
+from __future__ import annotations
 from dataclasses import asdict, dataclass, field
-from typing import Any, Callable, List, Optional
+from typing import Any, Callable, List, Optional, Type
 
 import dacite
 from django.utils import timezone
@@ -199,7 +199,7 @@ class Chat(TelegramType):
     bio: str = None
     description: str = None
     invite_link: str = None
-    pinned_message: 'Message' = None
+    pinned_message: Message = None
     permissions: ChatPermissions = None
     slow_mode_delay: int = None
     sticker_set_name: str = None
@@ -775,7 +775,7 @@ class Message(TelegramType):
     forward_signature: str = None
     forward_sender_name: str = None
     forward_date: int = None
-    reply_to_message: 'Message' = None
+    reply_to_message: Message = None
     via_bot: User = None
     edit_date: int = None
     media_group_id: str = None
@@ -808,7 +808,7 @@ class Message(TelegramType):
     channel_chat_created: bool = True
     migrate_to_chat_id: int = None
     migrate_from_chat_id: int = None
-    pinned_message: 'Message' = None
+    pinned_message: Message = None
     invoice: Invoice = None
     successful_payment: SuccessfulPayment = None
     connected_website: str = None
