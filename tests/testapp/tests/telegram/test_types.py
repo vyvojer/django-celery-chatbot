@@ -11,24 +11,91 @@ from django_chatbot.telegram.types import CallbackQuery, Chat, Message, \
 
 
 class TelegramTypeTestCase(TestCase):
-    def test_get_telegram_type__type(self):
-        telegram_type = TelegramType._get_telegram_type(User)
-        self.assertEqual(telegram_type, User)
-
-        telegram_type = TelegramType._get_telegram_type(int)
-        self.assertEqual(telegram_type, None)
-
-    def test_get_telegram_type__str(self):
-        telegram_type = TelegramType._get_telegram_type('User')
-        self.assertEqual(telegram_type, User)
-        telegram_type = TelegramType._get_telegram_type('int')
-        self.assertEqual(telegram_type, None)
-
-    def test_from_timestamp(self):
+    def test_timestamp_to_datetime(self):
         timestamp = 1441645532
-        dt = TelegramType._from_timestamp(timestamp)
+        dt = TelegramType.timestamp_to_datetime(timestamp)
         self.assertEqual(dt, timezone.datetime(
             2015, 9, 7, 17, 5, 32, tzinfo=timezone.utc))
+
+    def test_convert_to_date(self):
+        source = {
+            'date': 1441645532,
+            'num': 1,
+            'child': {
+                'date': 1441645532,
+                'num': 1,
+
+            }
+        }
+        converted = TelegramType.convert_date(
+            source, TelegramType.timestamp_to_datetime
+        )
+        self.assertEqual(
+            converted,
+            {
+                'date': timezone.datetime(
+                    2015, 9, 7, 17, 5, 32, tzinfo=timezone.utc),
+                'num': 1,
+                'child': {
+                    'date': timezone.datetime(
+                        2015, 9, 7, 17, 5, 32, tzinfo=timezone.utc),
+                    'num': 1,
+
+                }
+            }
+        )
+
+    def test_convert_to_timestamps(self):
+        source = {
+            'date': timezone.datetime(
+                2015, 9, 7, 17, 5, 32, tzinfo=timezone.utc),
+            'num': 1,
+            'child': {
+                'date': timezone.datetime(
+                    2015, 9, 7, 17, 5, 32, tzinfo=timezone.utc),
+                'num': 1,
+
+            }
+        }
+        converted = TelegramType.convert_date(
+            source, TelegramType.datetime_to_timestamp
+        )
+        self.assertEqual(
+            converted,
+            {
+                'date': 1441645532,
+                'num': 1,
+                'child': {
+                    'date': 1441645532,
+                    'num': 1,
+
+                }
+            }
+        )
+
+    def test_convert_froms(self):
+        source = {
+            'from': 'name',
+            'num': 1,
+            'child': {
+                'from': 'name',
+                'num': 1,
+
+            }
+        }
+        converted = TelegramType.convert_froms(source)
+        self.assertEqual(
+            converted,
+            {
+                'from_user': 'name',
+                'num': 1,
+                'child': {
+                    'from_user': 'name',
+                    'num': 1,
+
+                }
+            }
+        )
 
     def test_from_dict(self):
         source_data = {

@@ -24,9 +24,10 @@
 
 """Contains telegram types"""
 
-from dataclasses import dataclass, field
-from typing import List, Optional, Union
+from dataclasses import asdict, dataclass, field
+from typing import Any, Callable, List, Optional
 
+import dacite
 from django.utils import timezone
 
 
@@ -44,107 +45,59 @@ class TelegramType:
             TelegramType
 
         """
-        o = TelegramType._cast_result(cls=cls, source=source)
+        source = TelegramType.convert_date(
+            source, TelegramType.timestamp_to_datetime
+        )
+        source = TelegramType.convert_froms(source)
+        o = dacite.from_dict(cls, source)
         return o
 
     @staticmethod
-    def _from_timestamp(timestamp: int) -> timezone.datetime:
+    def convert_date(source: dict, convertor: Callable[[Any], Any]):
+        converted = {}
+        for k, v in source.items():
+            if isinstance(v, dict):
+                v = TelegramType.convert_date(v, convertor)
+            if k == 'date':
+                converted[k] = convertor(v)
+            else:
+                converted[k] = v
+        return converted
+
+    @staticmethod
+    def convert_froms(source: dict):
+        converted = {}
+        for k, v in source.items():
+            if isinstance(v, dict):
+                v = TelegramType.convert_froms(v)
+            if k == 'from':
+                converted['from_user'] = v
+            else:
+                converted[k] = v
+        return converted
+
+    @staticmethod
+    def timestamp_to_datetime(timestamp: int) -> timezone.datetime:
         """Convert timestamp to datetime"""
         dt = timezone.datetime.fromtimestamp(timestamp)
         dt = timezone.make_aware(dt, timezone=timezone.utc)
         return dt
 
     @staticmethod
-    def _get_telegram_type(
-            some_type: Union[type, str]):
-        """Extract `TelegramType` from annotation type.
+    def datetime_to_timestamp(datetime: timezone.datetime) -> float:
+        """Convert datetime to timestamp"""
+        return datetime.timestamp()
 
-        Annotation can be
-
-        Args:
-            some_type: Annotation type.
-
-        Returns:
-            TelegramType or None if the annotation type is not TelegramType
-
-        """
-        if isinstance(some_type, type):
-            if issubclass(some_type, TelegramType):
-                return some_type
-        elif isinstance(some_type, str):
-            try:
-                some_type = globals()[some_type]
-            except KeyError:
-                return None
-            else:
-                if issubclass(some_type, TelegramType):
-                    return some_type
-
-    @staticmethod
-    def _cast_list(param_type, value: List) -> List:
-        member_class = param_type.__args__[0]
-        casted = []
-        for member in value:
-            if isinstance(member, list):
-                casted.append(TelegramType._cast_list(member_class, member))
-            elif tel_type := TelegramType._get_telegram_type(member_class):
-                casted.append(
-                    TelegramType._cast_result(cls=tel_type, source=member)
-                )
-            else:
-                casted.append(member)
-        return casted
-
-    @staticmethod
-    def _cast_result(cls, source: dict):
-        """Recursively cast `source` to TelegramType `cls`
-
-        Members of the object will be casted accordingly to class annotations.
-        Three cases will be handled: TelegramType, List,
-        and built-in python type.
-
-        Args:
-            cls (TelegramType): TelegramType to which source should be casted.
-            source: Telegram type dictionary
-
-        Returns:
-            TelegramType: casted telegram object.
-
-        """
-        casted = {}
-        for param, value in source.items():
-            if param == 'from':
-                param = 'from_user'
-            if param == 'date':
-                value = TelegramType._from_timestamp(value)
-            param_type = cls.__annotations__[param]
-            if isinstance(value, list):
-                casted[param] = TelegramType._cast_list(param_type, value)
-            elif telegram_type := TelegramType._get_telegram_type(param_type):
-                casted[param] = TelegramType._cast_result(
-                    cls=telegram_type, source=value
-                )
-            else:
-                casted[param] = value
-
-        obj = cls(**casted)
-        return obj
-
-    def to_dict(self):
-        d = {}
-        for key, value in self.__dict__.items():
-            if not key.startswith("_") and value is not None:
-                d[key] = self._to_dict(value)
-        return d
-
-    @staticmethod
-    def _to_dict(value):
-        casted = value
-        if issubclass(type(value), TelegramType):
-            casted = value.to_dict()
-        elif isinstance(value, list):
-            casted = [TelegramType._to_dict(member) for member in value]
-        return casted
+    def to_dict(self, date_as_timestamp=False):
+        dikt = asdict(
+            self,
+            dict_factory=lambda l: {k: v for k, v in l if v is not None}
+        )
+        if date_as_timestamp:
+            dikt = TelegramType.convert_date(
+                dikt, TelegramType.datetime_to_timestamp
+            )
+        return dikt
 
 
 @dataclass(eq=True)
@@ -862,11 +815,6 @@ class Message(TelegramType):
     passport_data: PassportData = None
     proximity_alert_triggered: ProximityAlertTriggered = None
     reply_markup: InlineKeyboardMarkup = None
-
-    @classmethod
-    def from_dict(cls, source: dict):
-        source['from_user'] = source.pop('from')
-        return super().from_dict(source)
 
 
 @dataclass(eq=True)
