@@ -22,7 +22,7 @@ class TelegramTypeTestCase(TestCase):
             'date': 1441645532,
             'num': 1,
             'child': {
-                'date': 1441645532,
+                'edit_date': 1441645532,
                 'num': 1,
 
             }
@@ -37,7 +37,7 @@ class TelegramTypeTestCase(TestCase):
                     2015, 9, 7, 17, 5, 32, tzinfo=timezone.utc),
                 'num': 1,
                 'child': {
-                    'date': timezone.datetime(
+                    'edit_date': timezone.datetime(
                         2015, 9, 7, 17, 5, 32, tzinfo=timezone.utc),
                     'num': 1,
 
@@ -414,6 +414,50 @@ class UpdateFromDictTestCase(TestCase):
                         first_name="Test Firstname",
                         last_name="Test Lastname",
                     )
+                )
+            )
+        )
+
+    def test_edited_channel_post(self):
+        source = {'update_id': 10000,
+                  'edited_channel_post': {
+                      'message_id': 16,
+                      'sender_chat': {'id': -1001,
+                                      'title': 'test_channel',
+                                      'type': 'channel'},
+                      'chat': {'id': -1001,
+                               'title': 'test_channel',
+                               'type': 'channel'},
+                      'date': 1615492954,
+                      'edit_date': 1615493064,
+                      'text': 'post3'
+                  }}
+        update = Update.from_dict(source=source)
+
+        self.assertEqual(update.update_id, 10000)
+        self.assertEqual(
+            update,
+            Update(
+                update_id=10000,
+                edited_channel_post=Message(
+                    message_id=16,
+                    text="post3",
+                    date=timezone.datetime(
+                        2021, 3, 11, 20, 2, 34, tzinfo=timezone.utc
+                    ),
+                    edit_date=timezone.datetime(
+                        2021, 3, 11, 20, 4, 24, tzinfo=timezone.utc
+                    ),
+                    chat=Chat(
+                        id=-1001,
+                        type="channel",
+                        title="test_channel",
+                    ),
+                    sender_chat=Chat(
+                        id=-1001,
+                        type="channel",
+                        title="test_channel",
+                    ),
                 )
             )
         )

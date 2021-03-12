@@ -25,7 +25,7 @@
 """Contains telegram types"""
 from __future__ import annotations
 from dataclasses import asdict, dataclass, field
-from typing import Any, Callable, List, Optional, Type
+from typing import Any, Callable, List, Optional
 
 import dacite
 from django.utils import timezone
@@ -58,7 +58,7 @@ class TelegramType:
         for k, v in source.items():
             if isinstance(v, dict):
                 v = TelegramType.convert_date(v, convertor)
-            if k == 'date':
+            if k == 'date' or k == 'edit_date':
                 converted[k] = convertor(v)
             else:
                 converted[k] = v
@@ -777,7 +777,7 @@ class Message(TelegramType):
     forward_date: int = None
     reply_to_message: Message = None
     via_bot: User = None
-    edit_date: int = None
+    edit_date: timezone.datetime = None
     media_group_id: str = None
     author_signature: str = None
     text: str = None
