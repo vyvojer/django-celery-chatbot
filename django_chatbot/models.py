@@ -225,6 +225,10 @@ class User(models.Model):
         else:
             return self.user_id
 
+    def chat(self, bot: Bot):
+        chat_ = Chat.objects.filter(chat_id=self.user_id, bot=bot).first()
+        return chat_
+
 
 class ChatManager(models.Manager):
     def from_telegram(self,
@@ -240,13 +244,13 @@ class ChatManager(models.Manager):
             model instance.
         """
         defaults = telegram_chat.to_dict()
-        defaults['bot'] = bot
         _update_defaults(telegram_chat, defaults, 'photo')
         _update_defaults(telegram_chat, defaults, 'permissions')
         _update_defaults(telegram_chat, defaults, 'location')
         defaults.pop('id')
         chat, _ = self.update_or_create(
             chat_id=telegram_chat.id,
+            bot=bot,
             defaults=defaults
         )
         return chat
@@ -255,7 +259,7 @@ class ChatManager(models.Manager):
 class Chat(models.Model):
     """Persistent class for telegram ``Chat``"""
     bot = models.ForeignKey(Bot, on_delete=models.CASCADE)
-    chat_id = models.BigIntegerField(unique=True, db_index=True)
+    chat_id = models.BigIntegerField()
     type = models.CharField(max_length=255)
     title = models.CharField(max_length=255, blank=True)
     username = models.CharField(max_length=255, blank=True)
@@ -278,11 +282,17 @@ class Chat(models.Model):
 
     objects = ChatManager()
 
+    class Meta:
+        unique_together = (('bot', 'chat_id'),)
+        indexes = [
+            models.Index(fields=['bot', 'chat_id']),
+        ]
+
     def __str__(self):
         if self.username:
-            return f"{self.chat_id} - {self.username}"
+            return f"{self.bot} - {self.chat_id} - {self.username}"
         else:
-            return self.chat_id
+            return f"{self.bot} - {self.chat_id}"
 
     @cached_property
     def photo(self) -> Optional[types.ChatPhoto]:
@@ -417,6 +427,12 @@ class MessageManager(models.Manager):
             defaults['left_chat_member'] = user
         if telegram_message.new_chat_members:
             defaults.pop('new_chat_members')
+        if telegram_message.sender_chat:
+            sender_chat = Chat.objects.from_telegram(
+                bot=bot,
+                telegram_chat=telegram_message.sender_chat
+            )
+            defaults['sender_chat'] = sender_chat
         defaults.pop('message_id')
         message, created = self.update_or_create(
             message_id=telegram_message.message_id,
@@ -544,7 +560,7 @@ class Message(models.Model):
     objects = MessageManager()
 
     class Meta:
-        ordering = ["date"]
+        ordering = ["message_id", "chat"]
         unique_together = ["message_id", "chat"]
         index_together = ["message_id", "chat"]
 
@@ -693,6 +709,7 @@ class CallbackQueryManager(models.Manager):
         defaults.pop('id')
         user = User.objects.from_telegram(telegram_callback_query.from_user)
         defaults['from_user'] = user
+        defaults['bot'] = bot
         if telegram_callback_query.message:
             message = Message.objects.from_telegram(
                 bot=bot,
@@ -709,6 +726,7 @@ class CallbackQueryManager(models.Manager):
 
 class CallbackQuery(models.Model):
     """Persistent class for telegram ``CallbackQuery``"""
+    bot = models.ForeignKey(Bot, on_delete=models.CASCADE)
     callback_query_id = models.CharField(max_length=100)
     from_user = models.ForeignKey(User, on_delete=models.CASCADE)
     chat_instance = models.CharField(max_length=100)
@@ -764,6 +782,12 @@ class UpdateManager(models.Manager):
             defaults['message'] = Message.objects.from_telegram(
                 bot, telegram_message, direction=Message.DIRECTION_IN
             )
+            if telegram_update.edited_message:
+                defaults.pop('edited_message')
+            if telegram_update.channel_post:
+                defaults.pop('channel_post')
+            if telegram_update.edited_channel_post:
+                defaults.pop('edited_channel_post')
         if telegram_callback_query := telegram_update.callback_query:
             defaults['callback_query'] = CallbackQuery.objects.from_telegram(
                 bot, telegram_callback_query
@@ -796,15 +820,18 @@ class Update(models.Model):
     type = models.CharField(
         max_length=20, choices=TYPE_CHOICES, default=TYPE_MESSAGE
     )
-    message = models.OneToOneField(
+    message = models.ForeignKey(
         Message, null=True, blank=True, on_delete=models.CASCADE,
-        related_name="update"
+        related_name="updates"
     )
     callback_query = models.OneToOneField(
         CallbackQuery, null=True, blank=True, on_delete=models.CASCADE,
     )
 
     objects = UpdateManager()
+
+    class Meta:
+        ordering = ['message_id']
 
     def __str__(self):
         return f"{self.update_id}"
