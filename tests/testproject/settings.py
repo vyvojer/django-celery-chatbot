@@ -127,9 +127,14 @@ DJANGO_CHATBOT = {
     ),
     'BOTS': [
         {
-            'NAME': config('CHATBOT_NAME', default='@BotnameBot'),
-            'TOKEN': config('CHATBOT_TOKEN', default='xxxx:bot-token'),
-            'ROOT_HANDLERCONF': "testapp.handlers"
+            'NAME': config('NOTES_BOT_NAME', default='@BotnameBot'),
+            'TOKEN': config('NOTES_BOT_TOKEN', default='xxxx:bot-token'),
+            'ROOT_HANDLERCONF': "testapp.notes.handlers"
+        },
+        {
+            'NAME': config('DUMMY_BOT_NAME', default='@BotnameBot'),
+            'TOKEN': config('DUMMY_BOT_TOKEN', default='xxxx:bot-token'),
+            'ROOT_HANDLERCONF': "testapp.dummy.handlers"
         },
     ]
 }
