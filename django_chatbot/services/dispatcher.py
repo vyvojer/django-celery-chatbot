@@ -26,6 +26,7 @@
 
 import importlib
 import logging
+from functools import lru_cache
 from typing import Dict, Iterable, List
 
 from django_chatbot.models import Bot, Form, Update
@@ -35,6 +36,7 @@ from django_chatbot.telegram.types import Update as TelegramUpdate
 log = logging.getLogger(__name__)
 
 
+@lru_cache()
 def load_handlers() -> Dict[str, List[Handler]]:
     """Load registered handlers for all bots
 
@@ -66,9 +68,6 @@ def _load_bot_handlers(module_name: str) -> List[Handler]:
     return module.handlers  # noqa
 
 
-all_handlers = load_handlers()
-
-
 class Dispatcher:
     """This class dispatches incoming Telegram updates.
 
@@ -92,7 +91,7 @@ class Dispatcher:
 
     def __init__(self, token_slug: str):
         self.bot = Bot.objects.get(token_slug=token_slug)
-        self.handlers = all_handlers[self.bot.token_slug]
+        self.handlers = load_handlers()[self.bot.token_slug]
 
     def dispatch(self, update_data: dict):
         """Dispatch incoming Telegram updates"""

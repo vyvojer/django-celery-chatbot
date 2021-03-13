@@ -69,7 +69,7 @@ class LoadHandlersTestCase(TestCase):
         )
 
 
-@patch("django_chatbot.services.dispatcher.all_handlers")
+@patch("django_chatbot.services.dispatcher.load_handlers")
 class DispatcherTestCase(TestCase):
     def setUp(self) -> None:
         Bot.objects.create(name="bot1", token="token1")
@@ -85,7 +85,7 @@ class DispatcherTestCase(TestCase):
             self,
             mocked_from_dict: Mock,
             mocked_from_telegram: Mock,
-            mocked_all_handlers: Mock,
+            mocked_load_handlers: Mock,
     ):
         update = Mock()
         telegram_update = Mock()
@@ -102,7 +102,7 @@ class DispatcherTestCase(TestCase):
             self,
             mocked_from_dict: Mock,
             mocked_from_telegram: Mock,
-            mocked_all_handlers: Mock,
+            mocked_load_handlers: Mock,
     ):
         update = Mock()
         telegram_update = Mock()
@@ -111,10 +111,10 @@ class DispatcherTestCase(TestCase):
         handler_1 = Mock(**{'match.return_value': False})
         handler_2 = Mock(**{'match.return_value': True})
         handler_3 = Mock(**{'match.return_value': True})
-        mocked_all_handlers.__getitem__.side_effect = {
+        mocked_load_handlers.return_value = {
             'token1': [handler_3],
             'token2': [handler_1, handler_2, handler_3],
-        }.__getitem__
+        }
         dispatcher = Dispatcher(token_slug='token2')
 
         dispatcher.dispatch(update_data={})
@@ -161,7 +161,7 @@ class DispatcherTestCase(TestCase):
             mocked_from_dict: Mock,
             mocked_from_telegram: Mock,
             mocked_get_form: Mock,
-            mocked_all_handlers: Mock,
+            mocked_load_handlers: Mock,
     ):
         update = Mock()
         telegram_update = Mock()
@@ -170,9 +170,7 @@ class DispatcherTestCase(TestCase):
         form_keeper = Mock(spec=Form)
         mocked_get_form.return_value = form_keeper
         handler = Mock(**{'match.return_value': True}, suppress_form=True)
-        mocked_all_handlers.__getitem__.side_effect = {
-            'token2': [handler]
-        }.__getitem__
+        mocked_load_handlers.return_value = {'token2': [handler]}
 
         dispatcher = Dispatcher(token_slug='token2')
 
