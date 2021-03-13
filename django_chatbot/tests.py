@@ -33,7 +33,7 @@ from django.test import TestCase as DjangoTestCase
 from django.utils import timezone
 
 from django_chatbot.models import Bot, Chat, Message, Update, User
-from django_chatbot.services.dispatcher import Dispatcher, load_handlers
+from django_chatbot.services.dispatcher import Dispatcher
 from django_chatbot.telegram import types
 
 START_USER_ID = 1000
@@ -206,29 +206,17 @@ class MockChatbot:
         return message
 
 
-def dispatcher_init_patch(self, token_slug):
-    self.bot = Bot.objects.get(token_slug=token_slug)
-    self.handlers = load_handlers()[self.bot.token_slug]
-
-
 class TestCase(DjangoTestCase):
 
     def setUp(self) -> None:
+        super().setUp()
         self.mock_chatbot = MockChatbot()
         self.send_message_patcher = patch(
             "django_chatbot.telegram.api.Api.send_message",
             side_effect=self.mock_chatbot.send_message_patch
         )
         self.send_message_patcher.start()
-        self.dispatcher_patcher = patch.object(
-            Dispatcher,
-            "__init__",
-            dispatcher_init_patch
-        )
-        self.dispatcher_patcher.start()
-        super().setUp()
 
     def tearDown(self) -> None:
-        super().tearDown()
         self.send_message_patcher.stop()
-        self.dispatcher_patcher.stop()
+        super().tearDown()
