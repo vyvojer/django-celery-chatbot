@@ -23,12 +23,13 @@
 # *****************************************************************************
 from __future__ import annotations
 
-import json
+import logging
 import re
-from typing import List, Union
+from typing import List, Optional, Union
 from unittest.mock import patch
 
 from django.db.models import QuerySet
+from django.forms import Form
 from django.test import TestCase as DjangoTestCase
 from django.utils import timezone
 
@@ -37,6 +38,8 @@ from django_chatbot.services.dispatcher import Dispatcher
 from django_chatbot.telegram import types
 
 START_USER_ID = 1000
+
+log = logging.getLogger(__name__)
 
 
 class MockUser:
@@ -79,6 +82,11 @@ class MockUser:
             message__chat=self.chat
         ).order_by('update_id')
         return updates
+
+    def form(self) -> Optional[Form]:
+        if last := self.chat.messages.last():
+            if form_model := last.form:
+                return form_model.form
 
     def _next_message_id(self) -> int:
         messages = Message.objects.filter(
@@ -175,10 +183,7 @@ class MockChatbot:
                            ) -> types.Message:
         """Use this method to send text messages.
         """
-        if entities:
-            entities = [e.to_dict() for e in entities]
-        if reply_markup:
-            reply_markup = json.dumps(reply_markup.to_dict())
+        log.warning("send_message IS PATCHED!!!")
         params = {
             'chat_id': chat_id,
             'text': text,
