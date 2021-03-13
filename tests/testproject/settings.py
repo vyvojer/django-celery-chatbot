@@ -129,12 +129,12 @@ DJANGO_CHATBOT = {
         {
             'NAME': config('NOTES_BOT_NAME', default='@BotnameBot'),
             'TOKEN': config('NOTES_BOT_TOKEN', default='xxxx:bot-token'),
-            'ROOT_HANDLERCONF': "testapp.notes.handlers"
+            'ROOT_HANDLERCONF': "testapp.handlers"
         },
         {
             'NAME': config('DUMMY_BOT_NAME', default='@BotnameBot'),
             'TOKEN': config('DUMMY_BOT_TOKEN', default='xxxx:bot-token'),
-            'ROOT_HANDLERCONF': "testapp.dummy.handlers"
+            'ROOT_HANDLERCONF': "dummybot.handlers"
         },
     ]
 }
