@@ -36,7 +36,7 @@
 #
 from django_chatbot.handlers import CommandHandler, DefaultHandler
 from testapp import callbacks
-from testapp.forms import AddNote, DeleteNoteForm
+from testapp.forms import AddNote, DeleteNoteForm, NotesForm
 
 handlers = [
     CommandHandler(
@@ -62,5 +62,6 @@ handlers = [
     CommandHandler(
         name="delete", command="/delete", form_class=DeleteNoteForm
     ),
+    CommandHandler(name="notes", command="/notes", form_class=NotesForm),
     DefaultHandler(name="default", callback=callbacks.default),
 ]

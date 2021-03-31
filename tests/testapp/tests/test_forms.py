@@ -23,6 +23,7 @@
 # *****************************************************************************
 from unittest.mock import Mock, patch
 
+
 from django.core.exceptions import ValidationError
 from django.test import TestCase
 from django.utils import timezone
@@ -47,6 +48,7 @@ class FieldTestCase(TestCase):
     def setUp(self) -> None:
         self.update = Mock()
         self.cleaned_data = None
+        self.form = Mock()
 
     def test_to_prompt_message__text(self):
         field = forms.Field(
@@ -58,7 +60,7 @@ class FieldTestCase(TestCase):
             ],
         )
 
-        message = field.get_prompt_message_params(Mock(), Mock())
+        message = field.get_prompt_message_params(Mock(), Mock(), Mock())
 
         self.assertEqual(
             message.reply_markup.inline_keyboard, [
@@ -76,7 +78,7 @@ class FieldTestCase(TestCase):
                 raise error
 
         field = CustomField(name='field', prompt='Input value:')
-        field.clean("1", self.update, self.cleaned_data)
+        field.clean("1", self.update, self.cleaned_data, self.form)
 
         self.assertEqual(field.value, "1")
         self.assertEqual(field.is_bound, False)
@@ -90,15 +92,15 @@ class FieldTestCase(TestCase):
         def first_validator(value):
             raise first_error
 
-        def second_validatator(value):
+        def second_validator(value):
             raise second_error
 
         field = forms.Field(
             name="field",
-            validators=[first_validator, second_validatator],
+            validators=[first_validator, second_validator],
         )
 
-        field.clean("some value", Mock(), Mock())
+        field.clean("some value", Mock(), Mock(), Mock())
 
         self.assertEqual(field.value, "some value")
         self.assertEqual(field.is_bound, False)
@@ -126,7 +128,7 @@ class FieldTestCase(TestCase):
             }
         )
 
-        field.clean("some value", Mock(), Mock())
+        field.clean("some value", Mock(), Mock(), Mock())
 
         self.assertEqual(field.errors[0].message, "First error")
         self.assertEqual(field.errors[1].message, "Custom error message!")
@@ -235,10 +237,11 @@ class FieldTestCase(TestCase):
 class IntegerFieldTestCase(TestCase):
     def test_clean__valid(self):
         update = Mock()
+        form = Mock()
         cleaned_data = {}
         field = forms.IntegerField(name="int_field")
 
-        field.clean("42", update, cleaned_data)
+        field.clean("42", update, cleaned_data, form)
 
         self.assertEqual(field.value, 42)
         self.assertEqual(field.is_bound, True)
@@ -253,20 +256,22 @@ class IntegerFieldTestCase(TestCase):
 
     def test_max_value__valid_value(self):
         update = Mock()
+        form = Mock()
         cleaned_data = {}
         field = forms.IntegerField(name="int_field", max_value=10)
 
-        field.clean('10', update, cleaned_data)
+        field.clean('10', update, cleaned_data, form)
 
         self.assertEqual(field.value, 10)
         self.assertEqual(field.is_bound, True)
 
     def test_max_value__invalid_value(self):
         update = Mock()
+        form = Mock()
         cleaned_data = {}
         field = forms.IntegerField(name="int_field", max_value=10)
 
-        field.clean('11', update, cleaned_data)
+        field.clean('11', update, cleaned_data, form)
 
         self.assertEqual(field.value, 11)
         self.assertEqual(field.is_bound, False)
@@ -274,20 +279,22 @@ class IntegerFieldTestCase(TestCase):
 
     def test_min_value__valid_value(self):
         update = Mock()
+        form = Mock()
         cleaned_data = {}
         field = forms.IntegerField(name="int_field", min_value=0)
 
-        field.clean('10', update, cleaned_data)
+        field.clean('10', update, cleaned_data, form)
 
         self.assertEqual(field.value, 10)
         self.assertEqual(field.is_bound, True)
 
     def test_min_value__invalid_value(self):
         update = Mock()
+        form = Mock()
         cleaned_data = {}
         field = forms.IntegerField(name="int_field", min_value=0)
 
-        field.clean('-1', update, cleaned_data)
+        field.clean('-1', update, cleaned_data, form)
 
         self.assertEqual(field.value, -1)
         self.assertEqual(field.is_bound, False)
@@ -297,10 +304,11 @@ class IntegerFieldTestCase(TestCase):
 class CharFieldTestCase(TestCase):
     def test_max_length__valid_value(self):
         update = Mock()
+        form = Mock()
         cleaned_data = {}
         field = forms.CharField(name="field", max_length=3)
 
-        field.clean('123', update, cleaned_data)
+        field.clean('123', update, cleaned_data, form)
 
         self.assertEqual(field.value, '123')
         self.assertEqual(field.is_bound, True)
@@ -308,10 +316,11 @@ class CharFieldTestCase(TestCase):
 
     def test_max_length__invalid_value(self):
         update = Mock()
+        form = Mock()
         cleaned_data = {}
         field = forms.CharField(name="field", max_length=3)
 
-        field.clean('1234', update, cleaned_data)
+        field.clean('1234', update, cleaned_data, form)
 
         self.assertEqual(field.value, '1234')
         self.assertEqual(field.is_bound, False)
@@ -319,10 +328,11 @@ class CharFieldTestCase(TestCase):
 
     def test_min_length__valid_value(self):
         update = Mock()
+        form = Mock()
         cleaned_data = {}
         field = forms.CharField(name="field", min_length=3)
 
-        field.clean('123', update, cleaned_data)
+        field.clean('123', update, cleaned_data, form)
 
         self.assertEqual(field.value, '123')
         self.assertEqual(field.is_bound, True)
@@ -330,10 +340,11 @@ class CharFieldTestCase(TestCase):
 
     def test_min_length__invalid_value(self):
         update = Mock()
+        form = Mock()
         cleaned_data = {}
         field = forms.CharField(name="field", min_length=3)
 
-        field.clean('12', update, cleaned_data)
+        field.clean('12', update, cleaned_data, form)
 
         self.assertEqual(field.value, '12')
         self.assertEqual(field.is_bound, False)
@@ -405,7 +416,6 @@ class TestForm(forms.Form):
 
 
 handlers = []
-
 
 class CustomHandlerTestCase(ChatbotTestCase):
     handler_form = None
@@ -570,6 +580,9 @@ class InlineTestCase(CustomHandlerTestCase):
             )
         )
         self.assertEqual(self.mock_user.messages()[1].text, 'hey, form')
+        form = self.mock_user.form()
+        self.assertEqual(form.completed, False)
+        self.assertEqual(form.cleaned_data, {})
 
     def test_apple_field(self):
         self.mock_user.send_message("hey, form")
@@ -586,3 +599,152 @@ class InlineTestCase(CustomHandlerTestCase):
         )
         self.assertEqual(self.mock_user.messages()[1].text, 'An apple?')
         self.assertEqual(self.mock_user.callback_queries()[0].data, 'yes')
+        form = self.mock_user.form()
+        self.assertEqual(form.completed, False)
+        self.assertEqual(form.cleaned_data, {'apple_field': 'yes'})
+
+    def test_orange_field(self):
+        self.mock_user.send_message("hey, form")
+        self.mock_user.send_callback_query(data='yes')
+        self.mock_user.send_callback_query(data='no')
+
+        self.assertEqual(self.mock_user.messages()[0].text, 'An orange?')
+        self.assertEqual(self.mock_user.messages()[1].text, 'An apple?')
+        self.assertEqual(self.mock_user.callback_queries()[0].data, 'no')
+        self.assertEqual(self.mock_user.callback_queries()[1].data, 'yes')
+
+        form = self.mock_user.form()
+        self.assertEqual(form.completed, True)
+        self.assertEqual(
+            form.cleaned_data,
+            {
+                'apple_field': 'yes',
+                'orange_field': 'no',
+            }
+        )
+
+
+class OnTheFlyInlineTestCase(CustomHandlerTestCase):
+    class Form(forms.Form):
+        apple_field = forms.Field(
+            prompt="An apple?",
+            inline_keyboard=[
+                [InlineKeyboardButton("Yes", callback_data="yes")],
+                [InlineKeyboardButton("No", callback_data="no")]
+            ],
+        )
+        orange_field = forms.Field(
+            prompt="An orange?",
+            inline_keyboard=[
+                [InlineKeyboardButton("Yes", callback_data="yes")],
+                [InlineKeyboardButton("No", callback_data="no")]
+            ],
+            field_to_change=apple_field
+        )
+
+    handler_form = Form
+
+    def test_init_form(self):
+        self.mock_user.send_message("hey, form")
+
+        self.assertEqual(self.mock_user.messages()[0].text, 'An apple?')
+        self.assertEqual(
+            self.mock_user.messages()[0].reply_markup,
+            InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton("Yes", callback_data="yes")],
+                [InlineKeyboardButton("No", callback_data="no")]
+            ]
+            )
+        )
+        self.assertEqual(self.mock_user.messages()[1].text, 'hey, form')
+
+    def test_apple_field(self):
+        """ New message must not be added. Message must be updated """
+        self.mock_user.send_message("hey, form")
+        self.mock_user.send_callback_query(data='yes')
+
+        self.assertEqual(self.mock_user.messages()[0].text, 'An orange?')
+        # New message must not be added. Message must be updated
+        self.assertEqual(self.mock_user.messages().count(), 2)
+        self.assertEqual(
+            self.mock_user.messages()[0].reply_markup,
+            InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton("Yes", callback_data="yes")],
+                [InlineKeyboardButton("No", callback_data="no")]
+            ]
+            )
+        )
+        self.assertEqual(self.mock_user.callback_queries()[0].data, 'yes')
+        form = self.mock_user.form()
+        self.assertEqual(form.completed, False)
+        self.assertEqual(form.cleaned_data, {'apple_field': 'yes'})
+
+
+class OnTheFlyInlineLoopTestCase(CustomHandlerTestCase):
+    class Form(forms.Form):
+        def get_root_field(self):
+            field = forms.Field(
+                name="field",
+                prompt="An apple?",
+                inline_keyboard=[
+                    [InlineKeyboardButton("Yes", callback_data="yes")],
+                    [InlineKeyboardButton("No", callback_data="no")]
+                ],
+            )
+            field.add_next(field)
+            return field
+
+    handler_form = Form
+
+    def test_init_form(self):
+        self.mock_user.send_message("hey, form")
+
+        self.assertEqual(self.mock_user.messages()[0].text, 'An apple?')
+        self.assertEqual(
+            self.mock_user.messages()[0].reply_markup,
+            InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton("Yes", callback_data="yes")],
+                [InlineKeyboardButton("No", callback_data="no")]
+            ]
+            )
+        )
+        self.assertEqual(self.mock_user.messages()[1].text, 'hey, form')
+
+    def test_field_is_looped(self):
+        """ New message must not be added. Message must be updated """
+        self.mock_user.send_message("hey, form")
+        self.mock_user.send_callback_query(data='yes')
+
+        self.assertEqual(self.mock_user.messages()[0].text, 'An apple?')
+        # New message must not be added. Message must be updated
+        self.assertEqual(self.mock_user.messages().count(), 2)
+        self.assertEqual(
+            self.mock_user.messages()[0].reply_markup,
+            InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton("Yes", callback_data="yes")],
+                [InlineKeyboardButton("No", callback_data="no")]
+            ]
+            )
+        )
+        self.assertEqual(self.mock_user.callback_queries()[0].data, 'yes')
+        form = self.mock_user.form()
+        self.assertEqual(form.completed, False)
+        self.assertEqual(form.cleaned_data, {'field': 'yes'})
+
+        self.mock_user.send_callback_query(data='no')
+
+        self.assertEqual(self.mock_user.messages()[0].text, 'An apple?')
+        # New message must not be added. Message must be updated
+        self.assertEqual(self.mock_user.messages().count(), 2)
+        self.assertEqual(
+            self.mock_user.messages()[0].reply_markup,
+            InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton("Yes", callback_data="yes")],
+                [InlineKeyboardButton("No", callback_data="no")]
+            ]
+            )
+        )
+        self.assertEqual(self.mock_user.callback_queries()[0].data, 'no')
+        form = self.mock_user.form()
+        self.assertEqual(form.completed, False)
+        self.assertEqual(form.cleaned_data, {'field': 'no'})

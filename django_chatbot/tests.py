@@ -206,6 +206,7 @@ class MockUser:
 class MockChatbot:
     def __init__(self):
         self.sent_messages = []
+        self.edited_messages = []
 
     def last_message(self):
         if self.sent_messages:
@@ -256,6 +257,43 @@ class MockChatbot:
         )
         return message
 
+    def edit_message_text_patch(self,
+                           text: str,
+                           chat_id: int,
+                           message_id: int = None,
+                           inline_message_id: str = None,
+                           parse_mode: str = None,
+                           entities: List[types.MessageEntity] = None,
+                           disable_web_page_preview: bool = False,
+                           reply_markup: types.InlineKeyboardMarkup = None
+                           ) -> types.Message:
+        """Use this method to send text messages.
+        """
+        log.warning("send_message IS PATCHED!!!")
+        params = {
+            'text': text,
+            'chat_id': chat_id,
+            'message_id': message_id,
+            'inline_message_id': inline_message_id,
+            'entities': entities,
+            'parse_mode': parse_mode,
+            'disable_web_page_preview': disable_web_page_preview,
+            'reply_markup': reply_markup,
+        }
+        self.edited_messages.append(params)
+        user = types.User(id=1, is_bot=True, username="Bot")
+        telegram_chat = types.Chat(id=chat_id, type="private")
+        message = types.Message(
+            message_id=message_id,
+            date=timezone.now(),
+            chat=telegram_chat,
+            from_user=user,
+            text=text,
+            entities=entities,
+            reply_markup=reply_markup,
+        )
+        return message
+
 
 class TestCase(DjangoTestCase):
 
@@ -266,8 +304,14 @@ class TestCase(DjangoTestCase):
             "django_chatbot.telegram.api.Api.send_message",
             side_effect=self.mock_chatbot.send_message_patch
         )
+        self.edit_message_text_patcher = patch(
+            "django_chatbot.telegram.api.Api.edit_message_text",
+            side_effect=self.mock_chatbot.edit_message_text_patch
+        )
         self.send_message_patcher.start()
+        self.edit_message_text_patcher.start()
 
     def tearDown(self) -> None:
         self.send_message_patcher.stop()
+        self.edit_message_text_patcher.stop()
         super().tearDown()

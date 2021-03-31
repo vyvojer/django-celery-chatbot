@@ -140,7 +140,7 @@ class Bot(models.Model):
             self.save()
             raise error
         else:
-            self._webhook_info = webhook_info.to_dict()
+            self._webhook_info = webhook_info.to_dict(date_as_timestamp=True)
             self.update_successful = True
             self.webhook_update_datetime = timezone.now()
             self.save()
@@ -568,6 +568,10 @@ class Message(models.Model):
         return self.text[0:20]
 
     @cached_property
+    def bot(self):
+        return self.chat.bot
+
+    @cached_property
     def entities(self):
         if not self._entities:
             return None
@@ -690,6 +694,46 @@ class Message(models.Model):
         )
         return message
 
+    def edit(self,
+             text: str,
+             parse_mode: str = None,
+             entities: List[types.MessageEntity] = None,
+             disable_web_page_preview: bool = None,
+             reply_markup: types.InlineKeyboardMarkup = None):
+
+        api = self.bot.api
+        telegram_message = api.edit_message_text(
+            text=text,
+            chat_id=self.chat.chat_id,
+            message_id=self.message_id,
+            parse_mode=parse_mode,
+            entities=entities,
+            disable_web_page_preview=disable_web_page_preview,
+            reply_markup=reply_markup
+        )
+
+        message = Message.objects.from_telegram(
+            bot=self.bot,
+            telegram_message=telegram_message,
+            direction=Message.DIRECTION_OUT,
+        )
+        return message
+
+    def edit_reply_markup(self, reply_markup: types.InlineKeyboardMarkup):
+        api = self.bot.api
+        telegram_message = api.edit_message_reply_markup(
+            chat_id=self.chat.chat_id,
+            message_id=self.message_id,
+            reply_markup=reply_markup
+        )
+
+        message = Message.objects.from_telegram(
+            bot=self.bot,
+            telegram_message=telegram_message,
+            direction=Message.DIRECTION_OUT,
+        )
+        return message
+
 
 class CallbackQueryManager(models.Manager):
     def from_telegram(self,
@@ -781,16 +825,22 @@ class UpdateManager(models.Manager):
         defaults = telegram_update.to_dict()
         defaults.pop('update_id')
         defaults['bot'] = bot
-        if telegram_message := telegram_update.effective_message:
+        telegram_message = None
+        if telegram_update.message:
+            telegram_message = telegram_update.message
+        if telegram_update.edited_message:
+            telegram_message = telegram_update.edited_message
+            defaults.pop('edited_message')
+        if telegram_update.channel_post:
+            telegram_message = telegram_update.channel_post
+            defaults.pop('channel_post')
+        if telegram_update.edited_channel_post:
+            telegram_message = telegram_update.edited_channel_post
+            defaults.pop('edited_channel_post')
+        if telegram_message is not None:
             defaults['message'] = Message.objects.from_telegram(
                 bot, telegram_message, direction=Message.DIRECTION_IN
             )
-            if telegram_update.edited_message:
-                defaults.pop('edited_message')
-            if telegram_update.channel_post:
-                defaults.pop('channel_post')
-            if telegram_update.edited_channel_post:
-                defaults.pop('edited_channel_post')
         if telegram_callback_query := telegram_update.callback_query:
             defaults['callback_query'] = CallbackQuery.objects.from_telegram(
                 bot, telegram_callback_query

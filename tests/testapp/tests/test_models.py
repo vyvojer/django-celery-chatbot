@@ -567,7 +567,6 @@ class FormManagerTestCase(TestCase):
         )
 
     def test_get_form_for_message(self):
-
         answer = Message.objects.create(
             direction=Message.DIRECTION_IN,
             message_id=2,
@@ -603,7 +602,6 @@ class FormManagerTestCase(TestCase):
 
 
 class FormTestCase(TestCase):
-
     class TestForm(forms.Form):
         def get_fields(self):
             return []
@@ -820,6 +818,122 @@ class MessageTestCase(TestCase):
         self.assertEqual(message.from_user, user)
         self.assertEqual(message.reply_to_message, incoming_message)
         self.assertEqual(incoming_message.reply_message, message)
+
+    @patch.object(Api, 'edit_message_text')
+    def test_edit(self, mocked_edit_message_text: Mock):
+        old_text = 'old text'
+        new_text = 'new text'
+        old_markup =InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton("Yes", callback_data="yes"),
+                    InlineKeyboardButton("No", callback_data="no")
+                ]
+            ]
+        )
+        new_markup = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton("Yes and yes", callback_data="yes"),
+                ]
+            ]
+        )
+        bot = Bot.objects.create(
+            name="bot",
+            token="token",
+        )
+        chat = Chat.objects.create(
+            bot=bot,
+            chat_id=142,
+            type='private',
+        )
+        message = Message.objects.create(
+            message_id=42,
+            date=timezone.datetime(1999, 12, 31, tzinfo=timezone.utc),
+            chat=chat,
+            text=old_text,
+            _reply_markup=old_markup.to_dict()
+        )
+        mocked_edit_message_text.return_value = TelegramMessage(
+            message_id=42,
+            date=timezone.datetime(1999, 12, 31, tzinfo=timezone.utc),
+            chat=TelegramChat(id=142, type="private"),
+            text=new_text,
+            reply_markup=new_markup)
+
+        returned = message.edit(
+            text=new_text,
+            reply_markup=new_markup,
+        )
+        mocked_edit_message_text.assert_called_with(
+            text=new_text,
+            chat_id=chat.chat_id,
+            message_id=message.message_id,
+            parse_mode=None,
+            entities=None,
+            disable_web_page_preview=None,
+            reply_markup=new_markup
+        )
+
+        message.refresh_from_db()
+
+        self.assertEqual(message.reply_markup, new_markup)
+        self.assertEqual(message.text, new_text)
+        self.assertEqual(message, returned)
+
+    @patch.object(Api, 'edit_message_reply_markup')
+    def test_edit_reply_markup(self,
+                               mocked_edit_message_reply_markup: Mock):
+        old_markup =InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton("Yes", callback_data="yes"),
+                    InlineKeyboardButton("No", callback_data="no")
+                ]
+            ]
+        )
+        new_markup = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton("Yes and yes", callback_data="yes"),
+                ]
+            ]
+        )
+        bot = Bot.objects.create(
+            name="bot",
+            token="token",
+        )
+        chat = Chat.objects.create(
+            bot=bot,
+            chat_id=142,
+            type='private',
+        )
+        message = Message.objects.create(
+            message_id=42,
+            date=timezone.datetime(1999, 12, 31, tzinfo=timezone.utc),
+            chat=chat,
+            _reply_markup=old_markup.to_dict()
+        )
+        mocked_edit_message_reply_markup.return_value = TelegramMessage(
+            message_id=42,
+            date=timezone.datetime(1999, 12, 31, tzinfo=timezone.utc),
+            chat=TelegramChat(id=142, type="private"),
+            reply_markup=new_markup)
+
+        returned = message.edit_reply_markup(
+            reply_markup=new_markup,
+        )
+
+        mocked_edit_message_reply_markup.assert_called_with(
+            chat_id=chat.chat_id,
+            message_id=message.message_id,
+            reply_markup=new_markup
+        )
+
+        message.refresh_from_db()
+
+        self.assertEqual(message.reply_markup, new_markup)
+        self.assertEqual(message, returned)
 
 
 class CallbackQueryManagerTestCase(TestCase):

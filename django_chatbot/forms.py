@@ -38,7 +38,7 @@ from django.core.validators import (
 )
 from django.utils.translation import gettext as _
 
-from django_chatbot.models import Form as FormKeeper, Update
+from django_chatbot.models import Form as FormKeeper, Message, Update
 from django_chatbot.telegram.api import SendMessageParams
 from django_chatbot.telegram.types import (
     InlineKeyboardButton, InlineKeyboardMarkup,
@@ -67,6 +67,7 @@ class Field:
     required: bool = True
     prompt: str = None
     inline_keyboard: List[List[InlineKeyboardButton]] = None
+    field_to_change: Field = None
     default_validators: list = field(
         default_factory=list, repr=False, init=False
     )
@@ -76,13 +77,17 @@ class Field:
     value: Any = field(default=None, init=False)
     is_bound: bool = field(default=False, init=False)
     is_valid: bool = field(default=False, init=False)
+    message_pk: int = None
     next_fields: List[ConditionalField] = field(default_factory=list)
     _previous_field: Field = None
 
     def __post_init__(self):
         self.validators += self.default_validators
 
-    def get_prompt(self, update: Update, cleaned_data: dict):
+    def get_prompt(self,
+                   update: Update,
+                   cleaned_data: dict,
+                   form: Form):
         return self.prompt
 
     def get_text(self, prompt: str, error_text: str):
@@ -105,8 +110,9 @@ class Field:
 
     def get_prompt_message_params(self,
                                   update: Update,
-                                  cleaned_data: dict):
-        prompt = self.get_prompt(update, cleaned_data)
+                                  cleaned_data: dict,
+                                  form: Form):
+        prompt = self.get_prompt(update, cleaned_data, form)
         error_text = self.get_error_text()
         inline_keyboard = self.get_inline_keyboard(update, cleaned_data)
         text = self.get_text(prompt, error_text)
@@ -135,17 +141,25 @@ class Field:
         if errors:
             raise ValidationError(errors)
 
-    def validate(self, value, update: Update, cleaned_data: dict):
+    def validate(self,
+                 value,
+                 update: Update,
+                 cleaned_data: dict,
+                 form: Form):
         pass
 
-    def clean(self, value, update: Update, cleaned_data: dict):
+    def clean(self,
+              value,
+              update: Update,
+              cleaned_data: dict,
+              form):
         self.errors = []
         self.value = value
         try:
             value = self.to_python(value)
             self.value = value
             self._run_validators(value)
-            self.validate(value, update, cleaned_data)
+            self.validate(value, update, cleaned_data, form)
         except ValidationError as error:
             self.errors.extend(error.error_list)
             self._update_error_messages()
@@ -169,6 +183,8 @@ class Field:
     def add_next(self,
                  field: Field,
                  condition: Callable = None):
+        if field is self:
+            self.field_to_change = self
         if condition is None:
             self.next_fields.append(ConditionalField(field))
         else:
@@ -186,6 +202,11 @@ class Field:
         if next_field:
             next_field._previous_field = self
         return next_field
+
+    @property
+    def message(self) -> Optional[Message]:
+        if self.message_pk:
+            return Message.objects.get(pk=self.message_pk)
 
 
 @dataclass()
@@ -257,7 +278,7 @@ class Form(ABC):
     You should override this class.
 
     Attributes:
-        form_keeper_id: pk of Message, where serialized form is keeping.
+        form_keeper_id: pk of FormKeeper, where serialized form is keeping.
         completed: True if form is completed (All fields are validated
             and saved.)
         current_field: The reference to the currently handled field.
@@ -291,7 +312,7 @@ class Form(ABC):
         return state
 
     def __setstate__(self, state):
-        state['form_keepr'] = None
+        state['form_keeper'] = None
         self.__dict__.update(state)
 
     def get_root_field(self) -> Field:
@@ -322,15 +343,23 @@ class Form(ABC):
 
         """
         chat = update.telegram_object.chat
-        prompt_message = chat.reply(
-            **self.current_field.get_prompt_message_params(
-                update, self.cleaned_data
-            ).to_dict()
-        )
+        parameters = self.current_field.get_prompt_message_params(
+            update, self.cleaned_data, self
+        ).to_dict()
+
+        if (self.current_field.field_to_change
+                and
+                (
+                message_to_change := self.current_field.field_to_change.message)
+        ):
+            prompt_message = message_to_change.edit(**parameters)
+        else:
+            prompt_message = chat.reply(**parameters)
         if self.form_keeper is None:
             self.form_keeper = FormKeeper.objects.create()
         prompt_message.form = self.form_keeper
         prompt_message.save()
+        self.current_field.message_pk = prompt_message.pk
         self._save()
 
     def _save(self):
@@ -344,7 +373,8 @@ class Form(ABC):
 
     def _handle_user_input(self, update: Update):
         t_object = update.telegram_object
-        self.current_field.clean(t_object.text, update, self.cleaned_data)
+        self.current_field.clean(t_object.text, update, self.cleaned_data,
+                                 self)
         if self.current_field.is_valid:
             self.cleaned_data[
                 self.current_field.name] = self.current_field.value

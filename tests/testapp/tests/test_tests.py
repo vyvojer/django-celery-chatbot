@@ -377,47 +377,84 @@ class TestCaseTestCase(ChatbotTestCase):
     def setUp(self) -> None:
         super().setUp()
 
-        def callback(update: Update):
-            update.message.reply(text='answer')
-
-        self.handler = DefaultHandler("default", callback=callback)
         now = timezone.datetime(2001, 1, 1, tzinfo=timezone.utc)
         bot = Bot.objects.create(name="Bot", token="token")
         user = User.objects.create(user_id=2, is_bot=False, username='User')
         self.chat = Chat.objects.create(
             chat_id='2', type="private", bot=bot, username='User'
         )
+        self.old_bot_message = Message.objects.create(
+            direction=Message.DIRECTION_OUT,
+            message_id="1",
+            date=now,
+            text="Old question",
+            chat=self.chat,
+            from_user=user,
+        )
+
         message = Message.objects.create(
             direction=Message.DIRECTION_IN,
-            message_id="1",
+            message_id="2",
             date=now,
             text="Help",
             chat=self.chat,
             from_user=user,
         )
         self.update = Update.objects.create(
-            update_id="1",
+            update_id="2",
             bot=bot,
             message=message,
         )
+
+        def callback_reply(update: Update):
+            update.message.reply(text='answer')
+
+        def callback_edit(update: Update):
+            self.old_bot_message.edit(text='New question')
+
+        self.handler_reply = DefaultHandler("default", callback=callback_reply)
+        self.handler_edit = DefaultHandler("default", callback=callback_edit)
+
 
     @patch("django_chatbot.telegram.api.requests")
     def test_requests_get_will_not_invoked(self, mocked_requests):
         """Api.send_message must be monkey patched"""
 
-        self.handler.handle_update(self.update)
+        self.handler_reply.handle_update(self.update)
 
         mocked_requests.get.assert_not_called()
         mocked_requests.post.assert_not_called()
 
     def test_patched_send_message__return_right_message(self):
-        self.handler.handle_update(self.update)
+        self.handler_reply.handle_update(self.update)
 
-        self.assertEqual(Message.objects.count(), 2)
-        answer = Message.objects.get(direction=Message.DIRECTION_OUT)
+        self.assertEqual(Message.objects.count(), 3)
+        answer = Message.objects.get(message_id=3)
         bot_user = answer.from_user
 
         self.assertEqual(bot_user.user_id, 1)
         self.assertEqual(answer.from_user, bot_user)
         self.assertEqual(answer.chat, self.chat)
         self.assertEqual(answer.text, "answer")
+
+    @patch("django_chatbot.telegram.api.requests")
+    def test_requests_get_will_not_invoked_for_edit(self, mocked_requests):
+        """Api.send_message must be monkey patched"""
+
+        self.handler_edit.handle_update(self.update)
+
+        mocked_requests.get.assert_not_called()
+        mocked_requests.post.assert_not_called()
+
+    def test_patched_edit_message__return_right_message(self):
+        self.handler_edit.handle_update(self.update)
+
+        self.assertEqual(Message.objects.count(), 2)
+
+        self.old_bot_message.refresh_from_db()
+        bot_user = self.old_bot_message.from_user
+
+        self.assertEqual(bot_user.user_id, 1)
+        self.assertEqual(self.old_bot_message.from_user, bot_user)
+        self.assertEqual(self.old_bot_message.chat, self.chat)
+        self.assertEqual(self.old_bot_message.text, "New question")
