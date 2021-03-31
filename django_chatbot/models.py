@@ -717,11 +717,11 @@ class CallbackQueryManager(models.Manager):
                 direction=Message.DIRECTION_IN,
             )
             defaults['message'] = message
-        update, _ = self.update_or_create(
+        callback_query, _ = self.update_or_create(
             callback_query_id=telegram_callback_query.id,
             defaults=defaults
         )
-        return update
+        return callback_query
 
 
 class CallbackQuery(models.Model):
@@ -731,13 +731,16 @@ class CallbackQuery(models.Model):
     from_user = models.ForeignKey(User, on_delete=models.CASCADE)
     chat_instance = models.CharField(max_length=100)
     message = models.ForeignKey(
-        Message, on_delete=models.SET_NULL, null=True, blank=True
+        Message, on_delete=models.CASCADE, null=True, blank=True
     )
     inline_message_id = models.CharField(max_length=100, blank=True)
     data = models.CharField(max_length=100, blank=True)
     game_short_name = models.CharField(max_length=100, blank=True)
 
     objects = CallbackQueryManager()
+
+    class Meta:
+        ordering = ['callback_query_id']
 
     @property
     def chat(self):

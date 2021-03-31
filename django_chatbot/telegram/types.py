@@ -890,8 +890,6 @@ class Update(TelegramType):
             self._effective_message = self.message
         elif self.edited_message:
             self._effective_message = self.edited_message
-        elif self.callback_query:
-            self._effective_message = self.callback_query.message
         elif self.channel_post:
             self._effective_message = self.channel_post
         elif self.edited_channel_post:

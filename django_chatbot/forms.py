@@ -22,8 +22,10 @@
 #  THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 # *****************************************************************************
 
+from __future__ import annotations
 import logging
-from abc import ABC, abstractmethod
+from abc import ABC
+import dataclasses
 from dataclasses import dataclass, field
 from typing import Any, Callable, List, Optional
 
@@ -46,8 +48,22 @@ log = logging.getLogger(__name__)
 
 
 @dataclass(eq=True)
+class ConditionalField:
+    field: Field
+    condition: Callable = dataclasses.field(repr=False, default=None)
+
+    def __post_init__(self):
+        if self.condition is None:
+            self.condition = lambda value, update, cleaned_data: True
+        ConditionalField.condition = staticmethod(self.condition)
+
+    def match(self, value: Any, update: Update, cleaned_data: dict):
+        return self.condition(value, update, cleaned_data)
+
+
+@dataclass(eq=True)
 class Field:
-    name: str
+    name: str = None
     required: bool = True
     prompt: str = None
     inline_keyboard: List[List[InlineKeyboardButton]] = None
@@ -60,6 +76,8 @@ class Field:
     value: Any = field(default=None, init=False)
     is_bound: bool = field(default=False, init=False)
     is_valid: bool = field(default=False, init=False)
+    next_fields: List[ConditionalField] = field(default_factory=list)
+    _previous_field: Field = None
 
     def __post_init__(self):
         self.validators += self.default_validators
@@ -144,6 +162,30 @@ class Field:
         self.value = None
         self.is_bound = False
         self.is_valid = False
+
+    def on_valid(self, update: Update, cleaned_data: dict):
+        pass
+
+    def add_next(self,
+                 field: Field,
+                 condition: Callable = None):
+        if condition is None:
+            self.next_fields.append(ConditionalField(field))
+        else:
+            self.next_fields.append(ConditionalField(field, condition))
+
+    def previous(self):
+        return self._previous_field
+
+    def next(self, update: Update, cleaned_data: dict):
+        next_field = None
+        for conditional_field in self.next_fields:
+            if conditional_field.match(self.value, update, cleaned_data):
+                next_field = conditional_field.field
+                break
+        if next_field:
+            next_field._previous_field = self
+        return next_field
 
 
 @dataclass()
@@ -231,16 +273,14 @@ class Form(ABC):
     """
     form_keeper: Optional[FormKeeper] = field(init=False, default=None)
     completed: bool = field(init=False, default=False)
-    canceled: bool = field(init=False, default=False)
     current_field: Field = field(init=False, default=None)
     cleaned_data: dict = field(init=False, default_factory=dict)
-    fields: List[Field] = field(init=False, default=None)
     handlers: List[FormHandler] = field(init=False, default_factory=list)
 
     def __post_init__(self):
-        self.fields = self.get_fields()
         self.handlers = [
-            FormHandler(callback=self.back_to_previous, command='/previous')
+            FormHandler(callback=self.back_to_previous, command='/previous'),
+            FormHandler(callback=self.cancel, command='/cancel'),
         ]
 
     def __getstate__(self):
@@ -254,10 +294,21 @@ class Form(ABC):
         state['form_keepr'] = None
         self.__dict__.update(state)
 
-    @abstractmethod
-    def get_fields(self) -> List[Field]:
-        """Should return list of ``Field`` belonging to the form."""
-        pass
+    def get_root_field(self) -> Field:
+        fields = []
+        for name, attr in self.__class__.__dict__.items():
+            if isinstance(attr, Field):
+                attr.name = name
+                fields.append(attr)
+        try:
+            root = previous = fields[0]
+        except IndexError:
+            raise ValueError(
+                "There is no root field. Add fields to form or override get_root_fields")  # noqa
+        for current in fields[1:]:
+            previous.add_next(current)
+            previous = current
+        return root
 
     def _send_prompt(self,
                      update: Update):
@@ -286,20 +337,8 @@ class Form(ABC):
         self.form_keeper.form = self
         self.form_keeper.save()
 
-    def _previous_field(self):
-        """Return previous field"""
-        previous_index = self.fields.index(self.current_field) - 1
-        if previous_index >= 0:
-            return self.fields[previous_index]
-
-    def _next_field(self):
-        """Return next field"""
-        next_index = self.fields.index(self.current_field) + 1
-        if next_index < len(self.fields):
-            return self.fields[next_index]
-
     def _init_form(self, update: Update):
-        self.current_field = self.fields[0]
+        self.current_field = self.get_root_field()
         self.on_init(update, self.cleaned_data)
         self._send_prompt(update)
 
@@ -309,7 +348,8 @@ class Form(ABC):
         if self.current_field.is_valid:
             self.cleaned_data[
                 self.current_field.name] = self.current_field.value
-            if next_field := self._next_field():
+            if next_field := self.current_field.next(
+                    update, self.cleaned_data):
                 self.current_field = next_field
                 self._send_prompt(update)
             else:
@@ -360,7 +400,6 @@ class Form(ABC):
         """
         pass
 
-    @abstractmethod
     def on_complete(self, update: Update, cleaned_data: dict):
         """This method is called on form completion.
 
@@ -403,10 +442,13 @@ class Form(ABC):
     # Command/button handlers
 
     @staticmethod
-    def back_to_previous(form: 'Form', update):
-        previous = form._previous_field()
-        if previous:
+    def back_to_previous(form: Form, update):
+        if previous := form.current_field.previous():
             form.current_field = previous
             previous.clear()
             del form.cleaned_data[previous.name]
         form._send_prompt(update)
+
+    @staticmethod
+    def cancel(form: Form, update):
+        form.on_cancel(update, form.cleaned_data)

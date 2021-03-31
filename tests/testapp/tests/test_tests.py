@@ -27,7 +27,8 @@ from django.test import TestCase
 from django.utils import timezone
 
 from django_chatbot.handlers import DefaultHandler
-from django_chatbot.models import Bot, Chat, Message, Update, User
+from django_chatbot.models import Bot, CallbackQuery, Chat, Message, Update, \
+    User
 from django_chatbot.telegram import types
 from django_chatbot.tests import (
     START_USER_ID,
@@ -110,6 +111,60 @@ class MockUserTestCase(TestCase):
         )
 
         self.assertEqual(mock_user._next_message_id(), 9)
+
+    def test_next_callback_query(self, mocked_dispatcher: Mock):
+        mock_user = MockUser(bot=self.bot)
+        now = timezone.now()
+        message_1 = Message.objects.create(
+            message_id=7, chat=mock_user.chat, date=now, text="message_1"
+        )
+        message_2 = Message.objects.create(
+            message_id=8, chat=mock_user.chat, date=now, text="message_2"
+        )
+        CallbackQuery.objects.create(
+            callback_query_id="22", bot=self.bot,
+            from_user=mock_user.user, message=message_1
+        )
+        CallbackQuery.objects.create(
+            callback_query_id="23", bot=self.bot,
+            from_user=mock_user.user, message=message_2
+        )
+        self.assertEqual(mock_user._next_callback_query_id(), "24")
+
+    def test_callback_queries(self, mocked_dispatcher: Mock):
+        mock_user = MockUser(bot=self.bot)
+        another_user = MockUser(bot=self.bot)
+        now = timezone.now()
+        message_1 = Message.objects.create(
+            message_id=7, chat=mock_user.chat, date=now, text="message_1"
+        )
+        message_2 = Message.objects.create(
+            message_id=8, chat=mock_user.chat, date=now, text="message_2"
+        )
+        message_3 = Message.objects.create(
+            message_id=8, chat=another_user.chat, date=now, text="message_2"
+        )
+        callback_query_1 = CallbackQuery.objects.create(
+            callback_query_id="22", bot=self.bot,
+            from_user=mock_user.user, message=message_1
+        )
+        callback_query_2 = CallbackQuery.objects.create(
+            callback_query_id="23", bot=self.bot,
+            from_user=mock_user.user, message=message_2
+        )
+        CallbackQuery.objects.create(
+            callback_query_id="24", bot=self.bot,
+            from_user=another_user.user, message=message_3
+        )
+
+        self.assertQuerysetEqual(
+            mock_user.callback_queries(),
+            [
+                callback_query_2, callback_query_1
+            ],
+            transform=lambda x: x
+
+        )
 
     @patch("django_chatbot.tests.timezone.now")
     @patch.object(MockUser, '_next_message_id')
@@ -202,6 +257,120 @@ class MockUserTestCase(TestCase):
             },
         ]
         self.assertEqual(expected_entities, entities)
+
+    @patch("django_chatbot.tests.timezone.now")
+    @patch.object(MockUser, '_next_message_id')
+    @patch.object(MockUser, '_next_update_id')
+    def test_send_callback_query(self,
+                                 mocked_next_update_id: Mock,
+                                 mocked_next_message_id: Mock,
+                                 mocked_now: Mock,
+                                 mocked_dispatcher: Mock):
+        now = timezone.datetime(2000, 1, 1, tzinfo=timezone.utc)
+        mocked_now.return_value = now
+        mocked_next_message_id.return_value = 42
+        mocked_next_update_id.return_value = 142
+        test_user = MockUser(self.bot, username='u')
+        message = Message.objects.create(
+            chat=test_user.chat,
+            date=timezone.now(),
+            message_id=test_user._next_message_id(),
+            text='Yes of No?',
+            _reply_markup=types.InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [types.InlineKeyboardButton(
+                        "Yes", callback_data="yes")],
+                    [types.InlineKeyboardButton(
+                        "No", callback_data="no")]
+                ]
+            ).to_dict()
+        )
+
+        test_user.send_callback_query(data='yes', markup_message=message)
+
+        user = types.User(
+            id=START_USER_ID, is_bot=False,
+            username='u', first_name='u', last_name='u'
+        )
+        chat = types.Chat(
+            id=START_USER_ID, type='private',
+            username='u', first_name='u', last_name='u'
+        )
+        message = types.Message(
+            message_id=message.message_id,
+            date=message.date,
+            chat=chat,
+        )
+        callback_query = types.CallbackQuery(
+            id='1',
+            from_user=user,
+            chat_instance='1',
+            message=message,
+            data='yes'
+        )
+
+        update = types.Update(update_id=142, callback_query=callback_query)
+        update_data = update.to_dict(date_as_timestamp=True)
+        test_user.dispatcher.dispatch.assert_called_with(
+            update_data=update_data
+        )
+
+    @patch("django_chatbot.tests.timezone.now")
+    @patch.object(MockUser, '_next_message_id')
+    @patch.object(MockUser, '_next_update_id')
+    def test_send_callback_query_default_message(self,
+                                                 mocked_next_update_id: Mock,
+                                                 mocked_next_message_id: Mock,
+                                                 mocked_now: Mock,
+                                                 mocked_dispatcher: Mock):
+        now = timezone.datetime(2000, 1, 1, tzinfo=timezone.utc)
+        mocked_now.return_value = now
+        mocked_next_message_id.return_value = 42
+        mocked_next_update_id.return_value = 142
+        test_user = MockUser(self.bot, username='u')
+        message = Message.objects.create(
+            chat=test_user.chat,
+            date=timezone.now(),
+            message_id=test_user._next_message_id(),
+            text='Yes of No?',
+            _reply_markup=types.InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [types.InlineKeyboardButton(
+                        "Yes", callback_data="yes")],
+                    [types.InlineKeyboardButton(
+                        "No", callback_data="no")]
+                ]
+            ).to_dict()
+        )
+
+        test_user.send_callback_query(data='yes')
+
+        user = types.User(
+            id=START_USER_ID, is_bot=False,
+            username='u', first_name='u', last_name='u'
+        )
+        chat = types.Chat(
+            id=START_USER_ID, type='private',
+            username='u', first_name='u', last_name='u'
+        )
+        message = types.Message(
+            message_id=message.message_id,
+            date=message.date,
+            chat=chat,
+        )
+        callback_query = types.CallbackQuery(
+            id='1',
+            from_user=user,
+            chat_instance='1',
+            message=message,
+            data='yes'
+        )
+
+        update = types.Update(update_id=142, callback_query=callback_query)
+        update_data = update.to_dict(date_as_timestamp=True)
+        test_user.dispatcher.dispatch.assert_called_with(
+            update_data=update_data
+        )
 
 
 class TestCaseTestCase(ChatbotTestCase):

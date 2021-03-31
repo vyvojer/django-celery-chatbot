@@ -33,13 +33,18 @@ from django.forms import Form
 from django.test import TestCase as DjangoTestCase
 from django.utils import timezone
 
-from django_chatbot.models import Bot, Chat, Message, Update, User
+from django_chatbot.models import Bot, CallbackQuery, Chat, Message, Update, \
+    User
 from django_chatbot.services.dispatcher import Dispatcher
 from django_chatbot.telegram import types
 
 START_USER_ID = 1000
 
 log = logging.getLogger(__name__)
+
+
+class MockUserError(Exception):
+    pass
 
 
 class MockUser:
@@ -65,7 +70,7 @@ class MockUser:
         users = User.objects.all().order_by('user_id')
         last = users.last()
         if last:
-            return last.message_id + 1
+            return last.user_id + 1
         else:
             return START_USER_ID
 
@@ -80,8 +85,15 @@ class MockUser:
         """Return `Update` query set related to the user"""
         updates = Update.objects.filter(
             message__chat=self.chat
-        ).order_by('update_id')
+        ).order_by('-update_id')
         return updates
+
+    def callback_queries(self) -> QuerySet[CallbackQuery]:
+        """Return `Update` query set related to the user"""
+        callback_queries = CallbackQuery.objects.filter(
+            from_user=self.user
+        ).order_by('-callback_query_id')
+        return callback_queries
 
     def form(self) -> Optional[Form]:
         if last := self.chat.messages.last():
@@ -97,6 +109,14 @@ class MockUser:
             return last.message_id + 1
         else:
             return 1
+
+    def _next_callback_query_id(self) -> str:
+        callbacks = CallbackQuery.objects.all()
+        last = callbacks.last()
+        if last:
+            return str(int(last.callback_query_id) + 1)
+        else:
+            return "1"
 
     def _next_update_id(self) -> int:
         last = Update.objects.all().order_by('update_id').last()
@@ -151,6 +171,32 @@ class MockUser:
         update = types.Update(
             update_id=self._next_update_id(),
             message=message,
+        )
+        self.dispatcher.dispatch(
+            update_data=update.to_dict(date_as_timestamp=True)
+        )
+
+    def send_callback_query(self, data: str, markup_message: Message = None):
+        if markup_message is None:
+            last = self.messages().first()
+            if last is None or last.reply_markup is None:
+                raise ValueError("No ReplyMarkup to response")
+            else:
+                markup_message = last
+        callback_query = types.CallbackQuery(
+            id=self._next_callback_query_id(),
+            from_user=self._telegram_user(),
+            chat_instance=self._next_callback_query_id(),
+            message=types.Message(
+                message_id=markup_message.message_id,
+                chat=self._telegram_chat(),
+                date=markup_message.date,
+            ),
+            data=data,
+        )
+        update = types.Update(
+            update_id=self._next_update_id(),
+            callback_query=callback_query,
         )
         self.dispatcher.dispatch(
             update_data=update.to_dict(date_as_timestamp=True)
