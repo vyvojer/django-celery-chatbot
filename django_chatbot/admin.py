@@ -23,7 +23,9 @@
 # *****************************************************************************
 
 from django.contrib import admin
-from .models import Bot, CallbackQuery, Chat, Message, Update, User
+from django.db.models import F
+
+from .models import Bot, CallbackQuery, Chat, Form, Message, Update, User
 
 
 @admin.register(Bot)
@@ -49,6 +51,7 @@ class ChatAdmin(admin.ModelAdmin):
 @admin.register(Message)
 class MessageAdmin(admin.ModelAdmin):
     list_display = [
+        "bot_name",
         "direction",
         "message_id",
         "date",
@@ -56,8 +59,18 @@ class MessageAdmin(admin.ModelAdmin):
         "trancated_text",
     ]
 
+    def get_queryset(self, request):
+        query_set = super().get_queryset(request)
+        query_set = query_set.annotate(bot_name=F('chat__bot__name'))
+        return query_set
+
     def trancated_text(self, obj):
         return obj.text[:20]
+
+    def bot_name(self, obj):
+        return obj.bot_name
+
+    bot_name.admin_order_field = 'bot_name'
 
 
 @admin.register(CallbackQuery)
@@ -83,4 +96,11 @@ class UserAdmin(admin.ModelAdmin):
     list_display = [
         "user_id",
         "username",
+    ]
+
+
+@admin.register(Form)
+class FormAdmin(admin.ModelAdmin):
+    list_display = [
+        "id",
     ]

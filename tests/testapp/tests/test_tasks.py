@@ -15,7 +15,7 @@ class DispatchTestCase(TestCase):
             update_data=update_data, token_slug=token_slug
         ).apply()
 
-        mocked_dispatcher.assert_called_with(
-            update_data=update_data, token_slug=token_slug
+        mocked_dispatcher.assert_called_with(token_slug=token_slug)
+        mocked_dispatcher.return_value.dispatch.assert_called_with(
+            update_data=update_data
         )
-        mocked_dispatcher.return_value.dispatch.assert_called()

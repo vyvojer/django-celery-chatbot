@@ -1,17 +1,20 @@
-from unittest.mock import patch, Mock
+from unittest.mock import Mock, patch
 
+import jsonpickle
 from django.test import TestCase
 from django.utils import timezone
 
+from django_chatbot import forms
 from django_chatbot.models import (
     Bot,
     CallbackQuery,
-    Message,
     Chat,
+    Form,
+    Message,
     Update,
-    User, _update_defaults
-)
-from django_chatbot.telegram.api import TelegramError, Api
+    User,
+    _update_defaults)
+from django_chatbot.telegram.api import Api, TelegramError
 from django_chatbot.telegram.types import (
     Animation,
     CallbackQuery as TelegramCallbackQuery,
@@ -20,13 +23,13 @@ from django_chatbot.telegram.types import (
     ChatPermissions,
     ChatPhoto,
     InlineKeyboardButton,
+    InlineKeyboardMarkup,
     Location,
     Message as TelegramMessage,
+    MessageEntity,
     Update as TelegramUpdate,
     User as TelegramUser,
-    InlineKeyboardMarkup,
-    MessageEntity,
-    WebhookInfo,
+    WebhookInfo
 )
 
 
@@ -300,6 +303,49 @@ class UserManagerTestCase(TestCase):
         self.assertEqual(user.username, "username")
 
 
+class UserTestCase(TestCase):
+    def setUp(self) -> None:
+        self.bot = Bot.objects.create(name='bot', token='token')
+        self.another_bot = Bot.objects.create(
+            name='another_bot', token='another_token'
+        )
+        self.user = User.objects.create(
+            user_id=1,
+            is_bot=False,
+        )
+        self.bot_user = User.objects.create(
+            user_id=100,
+            is_bot=True,
+        )
+
+    def test_chat(self):
+        chat = Chat.objects.create(bot=self.bot, chat_id=1, type='private')
+        Message.objects.create(
+            message_id=1,
+            date=timezone.datetime(2000, 1, 1, tzinfo=timezone.utc),
+            chat=chat,
+            from_user=self.user
+        )
+        Message.objects.create(
+            message_id=2,
+            date=timezone.datetime(2000, 1, 1, 1, tzinfo=timezone.utc),
+            chat=chat,
+            from_user=self.bot_user
+        )
+        Message.objects.create(
+            message_id=3,
+            date=timezone.datetime(2000, 1, 1, 2, tzinfo=timezone.utc),
+            chat=chat,
+            from_user=self.user
+        )
+        another_chat = Chat.objects.create(
+            bot=self.another_bot, chat_id=1, type='private'
+        )
+
+        self.assertEqual(self.user.chat(self.bot), chat)
+        self.assertEqual(self.user.chat(self.another_bot), another_chat)
+
+
 class UpdateManagerTestCase(TestCase):
     def setUp(self) -> None:
         self.bot = Bot.objects.create(
@@ -327,6 +373,50 @@ class UpdateManagerTestCase(TestCase):
         self.assertEqual(update.update_id, telegram_update.update_id)
         self.assertEqual(update.message, message)
         self.assertEqual(message.chat, chat)
+
+    def test_from_telegram__channel_post(self):
+        telegram_update = TelegramUpdate(
+            update_id=40,
+            channel_post=TelegramMessage(
+                message_id=41,
+                chat=TelegramChat(id=-42, type='channel', title='the_channel'),
+                date=timezone.datetime(2000, 1, 1, tzinfo=timezone.utc),
+                sender_chat=TelegramChat(
+                    id=-42, type='channel', title='the_channel'
+                ),
+                text='post'
+            )
+        )
+        Update.objects.from_telegram(
+            bot=self.bot,
+            telegram_update=telegram_update,
+        )
+
+        update = Update.objects.first()
+        self.assertEqual(update.update_id, telegram_update.update_id)
+        self.assertEqual(update.type, Update.TYPE_CHANNEL_POST)
+
+    def test_from_telegram__edited_channel_post(self):
+        telegram_update = TelegramUpdate(
+            update_id=40,
+            edited_channel_post=TelegramMessage(
+                message_id=41,
+                chat=TelegramChat(id=-42, type='channel', title='the_channel'),
+                date=timezone.datetime(2000, 1, 1, tzinfo=timezone.utc),
+                sender_chat=TelegramChat(
+                    id=-42, type='channel', title='the_channel'
+                ),
+                text='post'
+            )
+        )
+        Update.objects.from_telegram(
+            bot=self.bot,
+            telegram_update=telegram_update,
+        )
+
+        update = Update.objects.first()
+        self.assertEqual(update.update_id, telegram_update.update_id)
+        self.assertEqual(update.type, Update.TYPE_EDITED_CHANNEL_POST)
 
     def test_from_telegram__callback_query(self):
         telegram_update = TelegramUpdate(
@@ -457,6 +547,90 @@ class ChatTestCase(TestCase):
 
         self.assertEqual(message.chat, self.chat)
         self.assertEqual(message.from_user, user)
+
+
+class FormManagerTestCase(TestCase):
+    def setUp(self) -> None:
+        self.user = User.objects.create(user_id=1, is_bot=False)
+        self.bot = Bot.objects.create(name='bot', token='token')
+        self.chat = Chat.objects.create(
+            bot=self.bot, chat_id=1, type='private'
+        )
+        self.form = Form.objects.create()
+        self.root_message = Message.objects.create(
+            direction=Message.DIRECTION_OUT,
+            message_id=1,
+            chat=self.chat,
+            date=timezone.datetime(2000, 1, 1, tzinfo=timezone.utc),
+            text="Question 1",
+            form=self.form,
+        )
+
+    def test_get_form_for_message(self):
+
+        answer = Message.objects.create(
+            direction=Message.DIRECTION_IN,
+            message_id=2,
+            chat=self.chat,
+            date=timezone.datetime(2000, 1, 1, 1, tzinfo=timezone.utc),
+            text="Answer 1"
+        )
+        update = Update.objects.create(
+            bot=self.bot,
+            message=answer,
+            update_id='1',
+        )
+
+        form = Form.objects.get_form(update=update)
+        self.assertEqual(form, self.form)
+
+    def test_get_form_for_callback_query(self):
+        callback_query = CallbackQuery.objects.create(
+            bot=self.bot,
+            callback_query_id="1",
+            from_user=self.user,
+            chat_instance="1",
+            message=self.root_message
+        )
+        update = Update.objects.create(
+            bot=self.bot,
+            callback_query=callback_query,
+            update_id='1',
+        )
+
+        form = Form.objects.get_form(update=update)
+        self.assertEqual(form, self.form)
+
+
+class FormTestCase(TestCase):
+
+    class TestForm(forms.Form):
+        def get_fields(self):
+            return []
+
+        def on_complete(self, update: Update, cleaned_data: dict):
+            pass
+
+    def setUp(self) -> None:
+        self.bot = Bot.objects.create(name="bot", token="token")
+
+    def test_form_getter(self):
+        form = self.TestForm()
+        form.completed = True
+
+        form_keeper = Form(_form=jsonpickle.encode(form))
+
+        form.form_keeper = form_keeper
+        self.assertEqual(form_keeper.form, form)
+
+    def test_form_setter(self):
+        form = self.TestForm()
+        form.completed = True
+
+        form_keeper = Form()
+        form_keeper.form = form
+
+        self.assertEqual(form_keeper._form, jsonpickle.encode(form))
 
 
 class MessageManagerTestCase(TestCase):
@@ -636,7 +810,7 @@ class MessageTestCase(TestCase):
         )
 
         user = User.objects.first()
-        message = Message.objects.first()
+        message = Message.objects.last()
 
         self.assertEqual(message.direction, Message.DIRECTION_OUT)
         self.assertEqual(message.message_id, 43)

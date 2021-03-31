@@ -21,7 +21,6 @@
 #  ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR
 #  THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 # *****************************************************************************
-
 from unittest.mock import Mock, patch
 
 from django.core.exceptions import ValidationError
@@ -29,21 +28,19 @@ from django.test import TestCase
 from django.utils import timezone
 
 from django_chatbot import forms
+from django_chatbot.forms import FormHandler
+from django_chatbot.handlers import DefaultHandler
 from django_chatbot.models import (
     Bot,
-    CallbackQuery,
     Chat,
+    Form as FormKeeper,
     Message,
-    Update,
-    User)
-from django_chatbot.services.forms import load_form
-from django_chatbot.telegram.api import Api
+    Update)
+from django_chatbot.services.dispatcher import load_handlers
 from django_chatbot.telegram.types import (
-    Chat as TelegramChat,
     InlineKeyboardButton,
-    Message as TelegramMessage,
-    User as TelegramUser,
-)
+    InlineKeyboardMarkup, )
+from django_chatbot.tests import MockUser, TestCase as ChatbotTestCase
 
 
 class FieldTestCase(TestCase):
@@ -148,6 +145,92 @@ class FieldTestCase(TestCase):
             error_text,
             "Wrong input!\nBad input!\nAnother error")
 
+    def test_previous_and_next__linear(self):
+        update = Mock()
+        cleaned_data = {}
+        field_1 = forms.Field("field_1")
+        field_2 = forms.Field("field_2")
+        field_3 = forms.Field("field_3")
+        field_1.add_next(field_2)
+        field_2.add_next(field_3)
+
+        self.assertEqual(field_1.previous(), None)
+        self.assertEqual(field_1.next(update, cleaned_data), field_2)
+        self.assertEqual(field_2.previous(), field_1)
+        self.assertEqual(field_2.next(update, cleaned_data), field_3)
+        self.assertEqual(field_3.previous(), field_2)
+        self.assertEqual(field_3.next(update, cleaned_data), None)
+
+    def test_previous_and_next__tree(self):
+        field_1 = forms.Field("field_1")
+        field_2 = forms.Field("field_2")
+        field_3 = forms.Field("field_3")
+        field_4 = forms.Field("field_4")
+        field_1.add_next(field_2, lambda v, u, c: v == 5)
+        field_1.add_next(
+            field_3,
+            lambda v, u, c: c.get("answer") and c["answer"] == 42
+        )
+        field_1.add_next(field_4)
+
+        field_1.value = 5
+        update = Mock()
+        cleaned_data = {}
+        self.assertEqual(field_1.previous(), None)
+        self.assertEqual(field_1.next(update, cleaned_data), field_2)
+        self.assertEqual(field_2.previous(), field_1)
+        self.assertEqual(field_2.next(update, cleaned_data), None)
+
+        field_1.value = 1
+        update = Mock()
+        cleaned_data = {'answer': 42}
+        self.assertEqual(field_1.previous(), None)
+        self.assertEqual(field_1.next(update, cleaned_data), field_3)
+        self.assertEqual(field_3.previous(), field_1)
+        self.assertEqual(field_3.next(update, cleaned_data), None)
+
+        field_1.value = 1
+        update = Mock()
+        cleaned_data = {}
+        self.assertEqual(field_1.previous(), None)
+        self.assertEqual(field_1.next(update, cleaned_data), field_4)
+        self.assertEqual(field_4.previous(), field_1)
+        self.assertEqual(field_4.next(update, cleaned_data), None)
+
+    def test_previous_and_next__graph(self):
+        field_1 = forms.Field("field_1")
+        field_2 = forms.Field("field_2")
+        field_3 = forms.Field("field_3")
+        field_4 = forms.Field("field_4")
+        forms.Field("field_5")
+
+        field_1.add_next(field_2, lambda v, u, c: v == 5)
+        field_1.add_next(field_3)
+
+        field_2.add_next(field_4)
+
+        field_3.add_next(field_4)
+
+        field_4.add_next(field_1, lambda v, u, c: v == 'again')
+
+        field_1.value = 5
+        field_4.value = 'again'
+        update = Mock()
+        cleaned_data = {}
+        self.assertEqual(field_1.next(update, cleaned_data), field_2)
+        self.assertEqual(field_2.previous(), field_1)
+        self.assertEqual(field_2.next(update, cleaned_data), field_4)
+        self.assertEqual(field_4.previous(), field_2)
+        self.assertEqual(field_4.next(update, cleaned_data), field_1)
+        self.assertEqual(field_1.previous(), field_4)
+        field_1.value = 6
+        self.assertEqual(field_1.next(update, cleaned_data), field_3)
+        self.assertEqual(field_3.previous(), field_1)
+        self.assertEqual(field_3.next(update, cleaned_data), field_4)
+        self.assertEqual(field_4.previous(), field_3)
+        field_4.value = 'finish'
+        self.assertEqual(field_4.next(update, cleaned_data), None)
+
 
 class IntegerFieldTestCase(TestCase):
     def test_clean__valid(self):
@@ -211,7 +294,7 @@ class IntegerFieldTestCase(TestCase):
         self.assertEqual(field.errors[0].code, 'min_value')
 
 
-class CharField(TestCase):
+class CharFieldTestCase(TestCase):
     def test_max_length__valid_value(self):
         update = Mock()
         cleaned_data = {}
@@ -257,52 +340,7 @@ class CharField(TestCase):
         self.assertEqual(field.is_valid, False)
 
 
-class SecondField(forms.IntegerField):
-    def get_prompt(self, update, cleaned_data):
-        first = cleaned_data['first_field']
-        return f"First field was {first}. Now enter second field:"
-
-
-class TestForm(forms.Form):
-    on_save_message = "Fields saved successfully."
-
-    def get_fields(self):
-        fields = [
-            forms.IntegerField(
-                name="first_field", prompt="Enter first field:"
-            ),
-            SecondField(
-                name="second_field", prompt="Enter second field:"
-            ),
-        ]
-        return fields
-
-    def on_first_update(self, update, cleaned_data):
-        self.cleaned_data['chat_id'] = update.message.chat.chat_id
-
-    def on_complete(self, update, cleaned_data):
-        pass
-
-
-class InlineForm(forms.Form):
-    def get_fields(self):
-        fields = [
-            forms.CharField(
-                name='field',
-                prompt="Yes?",
-                inline_keyboard=[
-                    [InlineKeyboardButton("Yes", callback_data="yes")],
-                    [InlineKeyboardButton("No", callback_data="no")]
-                ],
-            )
-        ]
-        return fields
-
-    def on_complete(self, update: Update, cleaned_data: dict):
-        pass
-
-
-class FormTestCase(TestCase):
+class FormHandlerTestCase(TestCase):
     def setUp(self) -> None:
         self.bot = Bot.objects.create(
             name="bot",
@@ -314,272 +352,237 @@ class FormTestCase(TestCase):
             type='private',
         )
 
-    @patch.object(Api, 'send_message')
-    def test_update__user_initiates_form_input(self, mocked_send_message):
-        """ Bot must send first field input"""
-
-        mocked_send_message.return_value = TelegramMessage(
-            message_id=2,
-            date=timezone.datetime(2000, 1, 1, 2, tzinfo=timezone.utc),
-            from_user=TelegramUser(id=1, is_bot=True),
-            chat=TelegramChat(id=140, type="private"),
-            text='Enter first field:',
-        )
-        request_message = Message.objects.create(
-            direction=Message.DIRECTION_IN,
-            message_id=1,
-            date=timezone.datetime(2000, 1, 1, 1, tzinfo=timezone.utc),
-            chat=self.chat,
-            text='I want to input data',
-        )
-        update = Update.objects.create(
-            bot=self.bot,
-            update_id=1,
-            message=request_message,
-        )
-
-        form = TestForm()
-        form.update(update)
-
-        self.assertEqual(form.fields[0].value, None)
-        self.assertEqual(form.fields[0].is_bound, False)
-        self.assertEqual(form.fields[1].value, None)
-        self.assertEqual(form.fields[1].is_bound, False)
-        self.assertEqual(form.current_field, form.fields[0])
-        self.assertEqual(form.cleaned_data, {'chat_id': 140})
-        self.assertEqual(form.completed, False)
-        out_messages = Message.objects.filter(direction=Message.DIRECTION_OUT)
-        first_prompt = out_messages[0]
-        self.assertEqual(first_prompt.chat, self.chat)
-        self.assertEqual(first_prompt.direction, Message.DIRECTION_OUT)
-        self.assertEqual(first_prompt.text, 'Enter first field:')
-        deserialized = load_form(first_prompt)
-        self.assertEqual(deserialized.current_field, deserialized.fields[0])
-
-    @patch.object(Api, 'send_message')
-    def test_update__first_input(self, mocked_send_message: Mock):
-        first_prompt = Message.objects.create(
-            message_id=2,
-            direction=Message.DIRECTION_OUT,
-            date=timezone.datetime(2000, 1, 1, 2, tzinfo=timezone.utc),
-            chat=self.chat,
-            text='Enter first field:',
-            extra={'form': {}}
-        )
-        first_input = Message.objects.create(
-            direction=Message.DIRECTION_IN,
-            message_id=3,
-            date=timezone.datetime(2000, 1, 1, 3, tzinfo=timezone.utc),
-            chat=self.chat,
-            text='41',
-        )
-        update = Update.objects.create(
-            bot=self.bot,
-            update_id=1,
-            message=first_input,
-        )
-        mocked_send_message.return_value = TelegramMessage(
-            message_id=4,
-            date=timezone.datetime(2000, 1, 1, 4, tzinfo=timezone.utc),
-            from_user=TelegramUser(id=1, is_bot=True),
-            chat=TelegramChat(id=140, type="private"),
-            text='Enter second field:',
-        )
-        form = TestForm()
-        first_field = forms.IntegerField(
-            name="first_field", prompt="Enter first field:"
-        )
-        second_field = SecondField(
-            name="second_field", prompt="Enter second field:"
-        )
-        form.fields = [first_field, second_field]
-        form.current_field = first_field
-
-        form.update(update)
-
-        mocked_send_message.assert_called_with(
-            chat_id=140,
-            text='First field was 41. Now enter second field:',
-            parse_mode=None
-        )
-        self.assertEqual(form.fields[0].value, 41)
-        self.assertEqual(form.fields[0].is_bound, True)
-        self.assertEqual(form.fields[1].value, None)
-        self.assertEqual(form.fields[1].is_bound, False)
-        self.assertEqual(form.completed, False)
-
-        out_messages = Message.objects.filter(direction=Message.DIRECTION_OUT)
-        first_prompt = out_messages[0]
-        last_prompt = out_messages[1]
-        deserialized = load_form(first_prompt)
-        self.assertEqual(deserialized, form)
-        self.assertEqual(last_prompt.chat, self.chat)
-        self.assertEqual(last_prompt.direction, Message.DIRECTION_OUT)
-        self.assertEqual(last_prompt.text, 'Enter second field:')
-        self.assertEqual(
-            last_prompt.extra,
-            {
-                'form_root_pk': first_prompt.pk
-            }
-        )
-
-    @patch.object(Api, 'send_message')
-    def test_update__first_input__invalid(self, mocked_send_message: Mock):
-        first_prompt = Message.objects.create(
-            message_id=2,
-            direction=Message.DIRECTION_OUT,
-            date=timezone.datetime(2000, 1, 1, 2, tzinfo=timezone.utc),
-            chat=self.chat,
-            text='Enter first field:',
-            extra={'form': {}}
-        )
-        first_input = Message.objects.create(
-            direction=Message.DIRECTION_IN,
-            message_id=3,
-            date=timezone.datetime(2000, 1, 1, 3, tzinfo=timezone.utc),
-            chat=self.chat,
-            text='4a',
-        )
-        update = Update.objects.create(
-            bot=self.bot,
-            update_id=1,
-            message=first_input,
-        )
-        mocked_send_message.return_value = TelegramMessage(
-            message_id=4,
-            date=timezone.datetime(2000, 1, 1, 4, tzinfo=timezone.utc),
-            from_user=TelegramUser(id=1, is_bot=True),
-            chat=TelegramChat(id=140, type="private"),
-            text='Enter a whole number.\nEnter first field:',
-        )
-        form = TestForm()
-        first_field = forms.IntegerField(
-            name="first_field", prompt="Enter first field:"
-        )
-        second_field = SecondField(
-            name="second_field", prompt="Enter second field:"
-        )
-        form.fields = [first_field, second_field]
-        form.current_field = first_field
-
-        form.update(update)
-
-        self.assertEqual(form.fields[0].value, '4a')
-        self.assertEqual(form.fields[0].is_bound, False)
-        self.assertEqual(form.fields[0].is_valid, False)
-        self.assertEqual(form.fields[1].value, None)
-        self.assertEqual(form.fields[1].is_bound, False)
-        self.assertEqual(form.current_field, form.fields[0])
-        self.assertEqual(form.completed, False)
-
-        mocked_send_message.assert_called_with(
-            chat_id=140,
-            text='Enter a whole number.\n\nEnter first field:',
-            parse_mode=None
-        )
-
-        out_messages = Message.objects.filter(direction=Message.DIRECTION_OUT)
-        first_prompt = out_messages[0]
-        last_prompt = out_messages[1]
-        self.assertEqual(last_prompt.chat, self.chat)
-        self.assertEqual(last_prompt.direction, Message.DIRECTION_OUT)
-        self.assertEqual(last_prompt.text,
-                         'Enter a whole number.\nEnter first field:')
-        self.assertEqual(
-            last_prompt.extra,
-            {
-                'form_root_pk': first_prompt.pk
-            }
-        )
-
-    @patch.object(TestForm, 'on_complete')
-    def test_update__last_input(self, mocked_on_complete: Mock):
-        first_prompt = Message.objects.create(
-            message_id=2,
-            direction=Message.DIRECTION_OUT,
-            date=timezone.datetime(2000, 1, 1, 2, tzinfo=timezone.utc),
-            chat=self.chat,
-            text='Enter first field:',
-        )
-        Message.objects.create(
-            message_id=4,
-            direction=Message.DIRECTION_OUT,
-            date=timezone.datetime(2000, 1, 1, 4, tzinfo=timezone.utc),
-            chat=self.chat,
-            text='Enter second field:',
-            extra={'form_root_pk': first_prompt.pk}
-        )
+    def test_match_command_valid(self):
         last_input = Message.objects.create(
             direction=Message.DIRECTION_IN,
             message_id=5,
             date=timezone.datetime(2000, 1, 1, 5, tzinfo=timezone.utc),
             chat=self.chat,
-            text='42',
+            text='/previous',
+            _entities=[{"type": "bot_command", "length": 9, "offset": 0}],
         )
         update = Update.objects.create(
             bot=self.bot,
             update_id=1,
             message=last_input,
         )
-        form = TestForm()
-        first_field = forms.IntegerField(
-            name="first_field", prompt="Enter first field:"
-        )
-        first_field.value = 41
-        first_field.is_valid = True
-        first_field.is_bound = True
-        second_field = SecondField(
-            name="second_field", prompt="Enter second field:"
-        )
-        form.fields = [first_field, second_field]
-        form.current_field = second_field
+        handler = FormHandler(callback=Mock(), command="/previous")
 
-        form.update(update)
+        self.assertEqual(handler.match(update), True)
 
-        self.assertEqual(form.fields[0].value, 41)
-        self.assertEqual(form.fields[0].is_valid, True)
-        self.assertEqual(form.fields[1].value, 42)
-        self.assertEqual(form.fields[1].is_valid, True)
-        self.assertEqual(form.completed, True)
-
-        first_prompt.refresh_from_db()
-        deserialized = load_form(first_prompt)
-        self.assertEqual(deserialized, form)
-        mocked_on_complete.assert_called_with(update, form.cleaned_data)
-
-    def test_update__callback_query(self):
-        user = User.objects.create(user_id=40, is_bot=False)
-        prompt = Message.objects.create(
-            message_id=2,
-            direction=Message.DIRECTION_OUT,
-            date=timezone.datetime(2000, 1, 1, 2, tzinfo=timezone.utc),
+    def test_command_invalid(self):
+        last_input = Message.objects.create(
+            direction=Message.DIRECTION_IN,
+            message_id=5,
+            date=timezone.datetime(2000, 1, 1, 5, tzinfo=timezone.utc),
             chat=self.chat,
-            text='Yes?:',
-            extra={'form': {}}
-        )
-        input = CallbackQuery.objects.create(
-            callback_query_id="1",
-            from_user=user,
-            chat_instance="1",
-            message=prompt,
-            data="yes",
+            text='/previous',
+            _entities=[{"type": "bot_command", "length": 9, "offset": 0}],
         )
         update = Update.objects.create(
             bot=self.bot,
-            type=Update.TYPE_CALLBACK_QUERY,
             update_id=1,
-            callback_query=input,
+            message=last_input,
+        )
+        handler = FormHandler(callback=Mock(), command="/cancel")
+
+        self.assertEqual(handler.match(update), False)
+
+
+class SecondField(forms.IntegerField):
+    def get_prompt(self, update, cleaned_data):
+        first = cleaned_data['first_field']
+        return f"First field was {first}. Now enter second field:"
+
+
+class TestForm(forms.Form):
+    on_save_message = "Fields saved successfully."
+    first_field = forms.IntegerField(prompt="Enter first field:")
+    second_field = SecondField(prompt="Enter second field:")
+
+    def on_init(self, update, cleaned_data):
+        self.cleaned_data['chat_id'] = update.message.chat.chat_id
+
+
+handlers = []
+
+
+class CustomHandlerTestCase(ChatbotTestCase):
+    handler_form = None
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.patcher = patch(
+            "testapp.tests.test_forms.handlers",
+            [DefaultHandler('default', form_class=self.handler_form)],
+        )
+        self.patcher.start()
+        load_handlers.cache_clear()
+        self.bot = Bot.objects.create(
+            name='bot', token='token',
+            root_handlerconf='testapp.tests.test_forms'
+        )
+        self.mock_user = MockUser(self.bot)
+
+    def tearDown(self) -> None:
+        super().tearDown()
+        self.patcher.stop()
+        load_handlers.cache_clear()
+
+
+class FormFlowTestCase(CustomHandlerTestCase):
+    class Form(forms.Form):
+        field_1 = forms.IntegerField(prompt='Enter field_1:')
+        field_2 = forms.IntegerField(prompt='Enter field_2:')
+
+        def on_init(self, update, cleaned_data):
+            self.cleaned_data['chat_id'] = update.message.chat.chat_id
+
+        def on_complete(self, update: Update, cleaned_data: dict):
+            update.telegram_object.reply('Thank you!')
+
+        def on_cancel(self, update: Update, cleaned_data: dict):
+            update.telegram_object.reply("It is sad")
+
+    handler_form = Form
+
+    def test_init_form(self):
+        self.mock_user.send_message(message_text='Hey, form')
+        form = self.mock_user.form()
+        self.assertEqual(form.current_field.name, 'field_1')
+        self.assertEqual(
+            form.cleaned_data,
+            {'chat_id': self.mock_user.chat.chat_id})
+        self.assertEqual(self.mock_user.messages()[0].text, 'Enter field_1:')
+        self.assertEqual(self.mock_user.messages()[1].text, 'Hey, form')
+
+    def test_first_input(self):
+        self.mock_user.send_message(message_text='Hey, form')
+        self.mock_user.send_message(message_text='10')
+        form = self.mock_user.form()
+        self.assertEqual(form.current_field.name, 'field_2')
+        self.assertEqual(
+            form.cleaned_data,
+            {
+                'chat_id': self.mock_user.chat.chat_id,
+                'field_1': 10,
+            }
+        )
+        self.assertEqual(self.mock_user.messages()[0].text, 'Enter field_2:')
+        self.assertEqual(self.mock_user.messages()[1].text, '10')
+        self.assertEqual(self.mock_user.messages()[2].text, 'Enter field_1:')
+        self.assertEqual(self.mock_user.messages()[3].text, 'Hey, form')
+
+    def test_previous_on_second_field(self):
+        self.mock_user.send_message(message_text='Hey, form')
+        self.mock_user.send_message(message_text='10')
+        self.mock_user.send_message(message_text='/previous')
+        form = self.mock_user.form()
+        self.assertEqual(form.current_field.name, 'field_1')
+        self.assertEqual(
+            form.cleaned_data,
+            {
+                'chat_id': self.mock_user.chat.chat_id,
+            }
+        )
+        self.assertEqual(self.mock_user.messages()[0].text, 'Enter field_1:')
+        self.assertEqual(self.mock_user.messages()[1].text, '/previous')
+        self.assertEqual(self.mock_user.messages()[2].text, 'Enter field_2:')
+        self.assertEqual(self.mock_user.messages()[3].text, '10')
+        self.assertEqual(self.mock_user.messages()[4].text, 'Enter field_1:')
+        self.assertEqual(self.mock_user.messages()[5].text, 'Hey, form')
+
+    def test_complete_form(self):
+        self.mock_user.send_message(message_text='Hey, form')
+        self.mock_user.send_message(message_text='10')
+        self.mock_user.send_message(message_text='20')
+
+        self.assertEqual(self.mock_user.form(), None)
+        completed_form = FormKeeper.objects.first().form
+        self.assertEqual(
+            completed_form.cleaned_data,
+            {
+                'chat_id': self.mock_user.chat.chat_id,
+                'field_1': 10,
+                'field_2': 20,
+            }
+        )
+        self.assertEqual(completed_form.completed, True)
+        self.assertEqual(self.mock_user.messages()[0].text, 'Thank you!')
+        self.assertEqual(self.mock_user.messages()[1].text, '20')
+        self.assertEqual(self.mock_user.messages()[2].text, 'Enter field_2:')
+        self.assertEqual(self.mock_user.messages()[3].text, '10')
+        self.assertEqual(self.mock_user.messages()[4].text, 'Enter field_1:')
+        self.assertEqual(self.mock_user.messages()[5].text, 'Hey, form')
+
+    def test_cancel_form(self):
+        self.mock_user.send_message(message_text='Hey, form')
+        self.mock_user.send_message(message_text='10')
+        self.mock_user.send_message(message_text='/cancel')
+
+        self.assertEqual(self.mock_user.form(), None)
+        completed_form = FormKeeper.objects.first().form
+        self.assertEqual(
+            completed_form.cleaned_data,
+            {
+                'chat_id': self.mock_user.chat.chat_id,
+                'field_1': 10,
+            }
+        )
+        self.assertEqual(completed_form.completed, False)
+        self.assertEqual(self.mock_user.messages()[0].text, 'It is sad')
+        self.assertEqual(self.mock_user.messages()[1].text, '/cancel')
+        self.assertEqual(self.mock_user.messages()[2].text, 'Enter field_2:')
+        self.assertEqual(self.mock_user.messages()[3].text, '10')
+        self.assertEqual(self.mock_user.messages()[4].text, 'Enter field_1:')
+        self.assertEqual(self.mock_user.messages()[5].text, 'Hey, form')
+
+
+class InlineTestCase(CustomHandlerTestCase):
+    class Form(forms.Form):
+        apple_field = forms.Field(
+            prompt="An apple?",
+            inline_keyboard=[
+                [InlineKeyboardButton("Yes", callback_data="yes")],
+                [InlineKeyboardButton("No", callback_data="no")]
+            ],
+        )
+        orange_field = forms.Field(
+            prompt="An orange?",
+            inline_keyboard=[
+                [InlineKeyboardButton("Yes", callback_data="yes")],
+                [InlineKeyboardButton("No", callback_data="no")]
+            ],
         )
 
-        form = InlineForm()
-        form.current_field = form.fields[0]
+    handler_form = Form
 
-        form.update(update)
+    def test_init_form(self):
+        self.mock_user.send_message("hey, form")
 
-        self.assertEqual(form.fields[0].value, "yes")
-        self.assertEqual(form.fields[0].is_bound, True)
-        self.assertEqual(form.completed, True)
-        self.assertEqual(form.cleaned_data, {'field': 'yes'})
-        prompt.refresh_from_db()
-        deserialized = load_form(prompt)
-        self.assertEqual(deserialized, form)
+        self.assertEqual(self.mock_user.messages()[0].text, 'An apple?')
+        self.assertEqual(
+            self.mock_user.messages()[0].reply_markup,
+            InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton("Yes", callback_data="yes")],
+                [InlineKeyboardButton("No", callback_data="no")]
+            ]
+            )
+        )
+        self.assertEqual(self.mock_user.messages()[1].text, 'hey, form')
+
+    def test_apple_field(self):
+        self.mock_user.send_message("hey, form")
+        self.mock_user.send_callback_query(data='yes')
+
+        self.assertEqual(self.mock_user.messages()[0].text, 'An orange?')
+        self.assertEqual(
+            self.mock_user.messages()[0].reply_markup,
+            InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton("Yes", callback_data="yes")],
+                [InlineKeyboardButton("No", callback_data="no")]
+            ]
+            )
+        )
+        self.assertEqual(self.mock_user.messages()[1].text, 'An apple?')
+        self.assertEqual(self.mock_user.callback_queries()[0].data, 'yes')

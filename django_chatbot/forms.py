@@ -22,10 +22,12 @@
 #  THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 # *****************************************************************************
 
+from __future__ import annotations
 import logging
-from abc import ABC, abstractmethod
+from abc import ABC
+import dataclasses
 from dataclasses import dataclass, field
-from typing import Any, List
+from typing import Any, Callable, List, Optional
 
 from django.core.exceptions import ValidationError
 from django.core.validators import (
@@ -36,9 +38,7 @@ from django.core.validators import (
 )
 from django.utils.translation import gettext as _
 
-from django_chatbot.models import Chat, Update
-from django_chatbot.services.forms import (get_form_root, save_form,
-                                           set_form_root)
+from django_chatbot.models import Form as FormKeeper, Update
 from django_chatbot.telegram.api import SendMessageParams
 from django_chatbot.telegram.types import (
     InlineKeyboardButton, InlineKeyboardMarkup,
@@ -48,8 +48,22 @@ log = logging.getLogger(__name__)
 
 
 @dataclass(eq=True)
+class ConditionalField:
+    field: Field
+    condition: Callable = dataclasses.field(repr=False, default=None)
+
+    def __post_init__(self):
+        if self.condition is None:
+            self.condition = lambda value, update, cleaned_data: True
+        ConditionalField.condition = staticmethod(self.condition)
+
+    def match(self, value: Any, update: Update, cleaned_data: dict):
+        return self.condition(value, update, cleaned_data)
+
+
+@dataclass(eq=True)
 class Field:
-    name: str
+    name: str = None
     required: bool = True
     prompt: str = None
     inline_keyboard: List[List[InlineKeyboardButton]] = None
@@ -62,6 +76,8 @@ class Field:
     value: Any = field(default=None, init=False)
     is_bound: bool = field(default=False, init=False)
     is_valid: bool = field(default=False, init=False)
+    next_fields: List[ConditionalField] = field(default_factory=list)
+    _previous_field: Field = None
 
     def __post_init__(self):
         self.validators += self.default_validators
@@ -142,6 +158,35 @@ class Field:
             if message := self.custom_error_messages.get(error.code):
                 error.message = message
 
+    def clear(self):
+        self.value = None
+        self.is_bound = False
+        self.is_valid = False
+
+    def on_valid(self, update: Update, cleaned_data: dict):
+        pass
+
+    def add_next(self,
+                 field: Field,
+                 condition: Callable = None):
+        if condition is None:
+            self.next_fields.append(ConditionalField(field))
+        else:
+            self.next_fields.append(ConditionalField(field, condition))
+
+    def previous(self):
+        return self._previous_field
+
+    def next(self, update: Update, cleaned_data: dict):
+        next_field = None
+        for conditional_field in self.next_fields:
+            if conditional_field.match(self.value, update, cleaned_data):
+                next_field = conditional_field.field
+                break
+        if next_field:
+            next_field._previous_field = self
+        return next_field
+
 
 @dataclass()
 class CharField(Field):
@@ -186,6 +231,25 @@ class IntegerField(Field):
         return int(value)
 
 
+@dataclass(eq=True)
+class FormHandler:
+    callback: Callable
+    command: str = None
+
+    def handle(self, form, update: Update):
+        self.callback(form, update=update)
+
+    def match(self, update: Update) -> bool:
+        match = False
+        if (message := update.message) and message.entities and self.command:
+            if [
+                entity for entity in message.entities
+                if entity.type == 'bot_command' and entity.text == self.command
+            ]:
+                match = True
+        return match
+
+
 @dataclass()
 class Form(ABC):
     """Base class for validation and saving multi-message user input.
@@ -193,6 +257,7 @@ class Form(ABC):
     You should override this class.
 
     Attributes:
+        form_keeper_id: pk of Message, where serialized form is keeping.
         completed: True if form is completed (All fields are validated
             and saved.)
         current_field: The reference to the currently handled field.
@@ -206,33 +271,100 @@ class Form(ABC):
         fields: The list of `Field` belonging to form
 
     """
+    form_keeper: Optional[FormKeeper] = field(init=False, default=None)
     completed: bool = field(init=False, default=False)
     current_field: Field = field(init=False, default=None)
     cleaned_data: dict = field(init=False, default_factory=dict)
-    fields: List[Field] = field(init=False, default=None)
+    handlers: List[FormHandler] = field(init=False, default_factory=list)
 
     def __post_init__(self):
-        self.fields = self.get_fields()
+        self.handlers = [
+            FormHandler(callback=self.back_to_previous, command='/previous'),
+            FormHandler(callback=self.cancel, command='/cancel'),
+        ]
 
-    @abstractmethod
-    def get_fields(self) -> List[Field]:
-        """Should return list of ``Field`` belonging to the form."""
-        pass
+    def __getstate__(self):
+        """Exclude some fields from serializing"""
+        state = self.__dict__.copy()
+        if 'form_keeper' in state:
+            del state['form_keeper']
+        return state
 
-    def _send_prompt(self, chat: Chat, update: Update, cleaned_data: dict):
-        message = chat.reply(
+    def __setstate__(self, state):
+        state['form_keepr'] = None
+        self.__dict__.update(state)
+
+    def get_root_field(self) -> Field:
+        fields = []
+        for name, attr in self.__class__.__dict__.items():
+            if isinstance(attr, Field):
+                attr.name = name
+                fields.append(attr)
+        try:
+            root = previous = fields[0]
+        except IndexError:
+            raise ValueError(
+                "There is no root field. Add fields to form or override get_root_fields")  # noqa
+        for current in fields[1:]:
+            previous.add_next(current)
+            previous = current
+        return root
+
+    def _send_prompt(self,
+                     update: Update):
+        """Send field input prompt to user
+
+        Args:
+            update:
+            root_message:
+
+        Returns:
+
+        """
+        chat = update.telegram_object.chat
+        prompt_message = chat.reply(
             **self.current_field.get_prompt_message_params(
-                update, cleaned_data
+                update, self.cleaned_data
             ).to_dict()
         )
-        return message
+        if self.form_keeper is None:
+            self.form_keeper = FormKeeper.objects.create()
+        prompt_message.form = self.form_keeper
+        prompt_message.save()
+        self._save()
 
-    def _next_field(self):
-        next_index = self.fields.index(self.current_field) + 1
-        if next_index < len(self.fields):
-            return self.fields[next_index]
+    def _save(self):
+        self.form_keeper.form = self
+        self.form_keeper.save()
 
-    def update(self, update: Update):
+    def _init_form(self, update: Update):
+        self.current_field = self.get_root_field()
+        self.on_init(update, self.cleaned_data)
+        self._send_prompt(update)
+
+    def _handle_user_input(self, update: Update):
+        t_object = update.telegram_object
+        self.current_field.clean(t_object.text, update, self.cleaned_data)
+        if self.current_field.is_valid:
+            self.cleaned_data[
+                self.current_field.name] = self.current_field.value
+            if next_field := self.current_field.next(
+                    update, self.cleaned_data):
+                self.current_field = next_field
+                self._send_prompt(update)
+            else:
+                self.completed = True
+                self.on_complete(update, self.cleaned_data)
+                self._save()
+        else:
+            self._send_prompt(update)
+
+    def _handle_user_command(self, update: Update) -> Optional[FormHandler]:
+        for handler in self.handlers:
+            if handler.match(update):
+                return handler
+
+    def update(self, update: Update) -> None:
         """Update and save form with the user update.
 
         Args:
@@ -241,40 +373,15 @@ class Form(ABC):
         Returns:
 
         """
-        telegram_object = update.telegram_object
-        if self.current_field is None:
-            self.current_field = self.fields[0]
-            self.on_first_update(update, self.cleaned_data)
-            prompt_message = self._send_prompt(
-                telegram_object.chat, update, self.cleaned_data
-            )
-            save_form(prompt_message, self)
+        if self.form_keeper is None:
+            self._init_form(update)
+        elif handler := self._handle_user_command(update):
+            handler.handle(self, update)
         else:
-            self.current_field.clean(
-                telegram_object.text, update, self.cleaned_data
-            )
-            root_message = get_form_root(telegram_object)
-            if self.current_field.is_valid:
-                self.cleaned_data[
-                    self.current_field.name] = self.current_field.value
-                if next_field := self._next_field():
-                    self.current_field = next_field
-                    prompt_message = self._send_prompt(
-                        telegram_object.chat, update, self.cleaned_data
-                    )
-                    set_form_root(prompt_message, root_message)
-                else:
-                    self.completed = True
-                    self.on_complete(update, self.cleaned_data)
-            else:
-                prompt_message = self._send_prompt(
-                    telegram_object.chat, update, self.cleaned_data
-                )
-                set_form_root(prompt_message, root_message)
-            save_form(root_message, self)
+            self._handle_user_input(update)
 
-    def on_first_update(self, update: Update, cleaned_data: dict):
-        """This method is called on first update.
+    def on_init(self, update: Update, cleaned_data: dict):
+        """This method is called on form init after getting first update.
 
         Override this method if you want to save some information from
             the update (for example, a model pk). Use the dictionary
@@ -293,7 +400,6 @@ class Form(ABC):
         """
         pass
 
-    @abstractmethod
     def on_complete(self, update: Update, cleaned_data: dict):
         """This method is called on form completion.
 
@@ -312,3 +418,37 @@ class Form(ABC):
 
         """
         pass
+
+    def on_cancel(self, update: Update, cleaned_data: dict):
+        """This method is called on form cancelation.
+
+        Override this method if you want to handle cancelation, for example
+        send message
+
+        Args:
+            update: The last user input. You can use it to get telegram User,
+                for example.
+            cleaned_data: The dictionary that contains the saved data in
+                the format
+                {
+                    "field_1_name": "field_1_value",
+                    ...
+                    "field_n_name": "field_n_value",
+                }
+
+        """
+        pass
+
+    # Command/button handlers
+
+    @staticmethod
+    def back_to_previous(form: Form, update):
+        if previous := form.current_field.previous():
+            form.current_field = previous
+            previous.clear()
+            del form.cleaned_data[previous.name]
+        form._send_prompt(update)
+
+    @staticmethod
+    def cancel(form: Form, update):
+        form.on_cancel(update, form.cleaned_data)

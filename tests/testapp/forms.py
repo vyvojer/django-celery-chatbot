@@ -1,7 +1,6 @@
 # *****************************************************************************
 #  MIT License
 #
-#  Copyright (c) 2020 Alexey Londkevich <londkevich@gmail.com>
 #
 #  Permission is hereby granted, free of charge, to any person obtaining a copy
 #  of this software and associated documentation files (the "Software"),
@@ -10,17 +9,7 @@
 #  and/or sell copies of the Software, and to permit persons to whom
 #  the Software is furnished to do so, subject to the following conditions:
 #
-#  The above copyright notice and this permission notice shall be included
-#  in all copies or substantial portions of the Software.
 #
-#  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-#  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-#  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-#  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-#  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
-#  ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR
-#  THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-# *****************************************************************************
 import logging
 
 from django.core.exceptions import ValidationError
@@ -29,7 +18,7 @@ from django_chatbot.forms import CharField, Form, IntegerField
 from django_chatbot.models import Update
 from django_chatbot.telegram.types import InlineKeyboardButton
 
-from .models import Note
+from testapp.models import Note
 
 log = logging.getLogger(__name__)
 
@@ -43,25 +32,11 @@ class AddNote(Form):
         """
             return prompt
 
-    def get_fields(self):
-        fields = [
-            CharField(
-                name="title",
-                prompt="Input title:",
-                min_length=5,
-                max_length=15
-            ),
-            CharField(
-                name="text",
-                prompt="Input text:",
-                min_length=10,
-                max_length=100
-            ),
-            self.ConfirmSaveField(name="confirm", inline_keyboard=[
-                [InlineKeyboardButton("Yes", callback_data="yes"),
-                 InlineKeyboardButton("No", callback_data="cancel")]])
-        ]
-        return fields
+    title = CharField(prompt="Input title:", min_length=5, max_length=15)
+    text = CharField(prompt="Input text:", min_length=10, max_length=100)
+    confirm = ConfirmSaveField(inline_keyboard=[
+        [InlineKeyboardButton("Yes", callback_data="yes"),
+         InlineKeyboardButton("No", callback_data="cancel")]])
 
     def on_complete(self, update, cleaned_data):
         telegram_object = update.telegram_object
@@ -103,20 +78,14 @@ class IdToDeleteField(IntegerField):
 
 
 class DeleteNoteForm(Form):
-    def get_fields(self):
-        fields = [
-            IdToDeleteField(
-                name='note_id', prompt="Input note ID", min_value=0,
-            ),
-            ConfirmDeleteField(name="confirm", inline_keyboard=[
-                [InlineKeyboardButton("Yes", callback_data="yes"),
-                 InlineKeyboardButton("No", callback_data="cancel")]])
-        ]
-        return fields
+    note_id = IdToDeleteField(prompt="Input note ID", min_value=0,)
+    confirm = ConfirmDeleteField(inline_keyboard=[
+        [InlineKeyboardButton("Yes", callback_data="yes"),
+         InlineKeyboardButton("No", callback_data="cancel")]])
 
     def on_complete(self, update, cleaned_data):
         telegram_object = update.telegram_object
-        chat = telegram_object.chat
+        chat = telegram_object.get_chat
         if cleaned_data['confirm'] == 'cancel':
             chat.reply("Note has not been deleted.")
         else:
