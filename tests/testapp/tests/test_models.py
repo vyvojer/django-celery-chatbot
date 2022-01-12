@@ -13,7 +13,8 @@ from django_chatbot.models import (
     Message,
     Update,
     User,
-    _update_defaults)
+    _update_defaults,
+)
 from django_chatbot.telegram.api import Api, TelegramError
 from django_chatbot.telegram.types import (
     Animation,
@@ -29,7 +30,7 @@ from django_chatbot.telegram.types import (
     MessageEntity,
     Update as TelegramUpdate,
     User as TelegramUser,
-    WebhookInfo
+    WebhookInfo,
 )
 
 
@@ -41,20 +42,17 @@ class BotTestCase(TestCase):
         )
 
     def test_token_slug(self):
-        bot = Bot.objects.create(
-            name="TestBot",
-            token="123:xxx-yyyy"
-        )
+        bot = Bot.objects.create(name="TestBot", token="123:xxx-yyyy")
 
         self.assertEqual(bot.token_slug, "123xxx-yyyy")
 
     def test_me(self):
         bot = Bot(
             _me={
-                'id': 7,
-                'is_bot': True,
-                'first_name': 'first_name',
-                'username': 'username'
+                "id": 7,
+                "is_bot": True,
+                "first_name": "first_name",
+                "username": "username",
             }
         )
 
@@ -63,27 +61,27 @@ class BotTestCase(TestCase):
             TelegramUser(
                 id=7,
                 is_bot=True,
-                first_name='first_name',
-                username='username',
-            )
+                first_name="first_name",
+                username="username",
+            ),
         )
 
     def test_webhook_info(self):
         bot = Bot(
             _webhook_info={
-                'url': 'https://example.com',
-                'has_custom_certificate': False,
-                'pending_update_count': 0
+                "url": "https://example.com",
+                "has_custom_certificate": False,
+                "pending_update_count": 0,
             }
         )
 
         self.assertEqual(
             bot.webhook_info,
             WebhookInfo(
-                url='https://example.com',
+                url="https://example.com",
                 has_custom_certificate=False,
-                pending_update_count=0
-            )
+                pending_update_count=0,
+            ),
         )
 
     @patch("django_chatbot.models.Api")
@@ -107,11 +105,11 @@ class BotTestCase(TestCase):
         self.assertEqual(
             self.bot._me,
             {
-                'id': 7,
-                'is_bot': True,
-                'first_name': 'first_name',
-                'username': 'username'
-            }
+                "id": 7,
+                "is_bot": True,
+                "first_name": "first_name",
+                "username": "username",
+            },
         )
         self.bot.refresh_from_db()
         self.assertEqual(self.bot.update_successful, True)
@@ -128,7 +126,7 @@ class BotTestCase(TestCase):
             url="url",
             status_code=404,
             response=response,
-            api_code="404"
+            api_code="404",
         )
         mocked_api.return_value.get_me.side_effect = [error]
 
@@ -147,7 +145,7 @@ class BotTestCase(TestCase):
         webhook_info = WebhookInfo(
             url="https://example.com",
             has_custom_certificate=False,
-            pending_update_count=0
+            pending_update_count=0,
         )
         mocked_api.return_value.get_webhook_info.return_value = webhook_info
 
@@ -159,10 +157,10 @@ class BotTestCase(TestCase):
         self.assertEqual(
             self.bot._webhook_info,
             {
-                'url': 'https://example.com',
-                'has_custom_certificate': False,
-                'pending_update_count': 0
-            }
+                "url": "https://example.com",
+                "has_custom_certificate": False,
+                "pending_update_count": 0,
+            },
         )
         self.bot.refresh_from_db()
         self.assertEqual(self.bot.update_successful, True)
@@ -178,7 +176,7 @@ class BotTestCase(TestCase):
             url="url",
             status_code=404,
             response=Mock(),
-            api_code="404"
+            api_code="404",
         )
 
         mocked_api.return_value.get_webhook_info.side_effect = [error]
@@ -200,14 +198,14 @@ class BotTestCase(TestCase):
         mocked_api.return_value.set_webhook.return_value = True
 
         result = self.bot.set_webhook(
-            domain='http://example.com',
+            domain="http://example.com",
             max_connections=42,
             allowed_updates=["message"],
         )
 
         mocked_api.assert_called_with(token="bot-token")
         mocked_api.return_value.set_webhook.assert_called_with(
-            url='http://example.com/chatbot/webhook/bot-token/',
+            url="http://example.com/chatbot/webhook/bot-token/",
             max_connections=42,
             allowed_updates=["message"],
         )
@@ -226,20 +224,20 @@ class BotTestCase(TestCase):
             url="url",
             status_code=404,
             response=Mock(),
-            api_code="404"
+            api_code="404",
         )
         mocked_api.return_value.set_webhook.side_effect = [error]
 
         with self.assertRaises(TelegramError) as raised:
             self.bot.set_webhook(
-                domain='http://example.com',
+                domain="http://example.com",
                 max_connections=42,
                 allowed_updates=["message"],
             )
 
         mocked_api.assert_called_with(token="bot-token")
         mocked_api.return_value.set_webhook.assert_called_with(
-            url='http://example.com/chatbot/webhook/bot-token/',
+            url="http://example.com/chatbot/webhook/bot-token/",
             max_connections=42,
             allowed_updates=["message"],
         )
@@ -305,10 +303,8 @@ class UserManagerTestCase(TestCase):
 
 class UserTestCase(TestCase):
     def setUp(self) -> None:
-        self.bot = Bot.objects.create(name='bot', token='token')
-        self.another_bot = Bot.objects.create(
-            name='another_bot', token='another_token'
-        )
+        self.bot = Bot.objects.create(name="bot", token="token")
+        self.another_bot = Bot.objects.create(name="another_bot", token="another_token")
         self.user = User.objects.create(
             user_id=1,
             is_bot=False,
@@ -319,27 +315,27 @@ class UserTestCase(TestCase):
         )
 
     def test_chat(self):
-        chat = Chat.objects.create(bot=self.bot, chat_id=1, type='private')
+        chat = Chat.objects.create(bot=self.bot, chat_id=1, type="private")
         Message.objects.create(
             message_id=1,
             date=timezone.datetime(2000, 1, 1, tzinfo=timezone.utc),
             chat=chat,
-            from_user=self.user
+            from_user=self.user,
         )
         Message.objects.create(
             message_id=2,
             date=timezone.datetime(2000, 1, 1, 1, tzinfo=timezone.utc),
             chat=chat,
-            from_user=self.bot_user
+            from_user=self.bot_user,
         )
         Message.objects.create(
             message_id=3,
             date=timezone.datetime(2000, 1, 1, 2, tzinfo=timezone.utc),
             chat=chat,
-            from_user=self.user
+            from_user=self.user,
         )
         another_chat = Chat.objects.create(
-            bot=self.another_bot, chat_id=1, type='private'
+            bot=self.another_bot, chat_id=1, type="private"
         )
 
         self.assertEqual(self.user.chat(self.bot), chat)
@@ -349,7 +345,8 @@ class UserTestCase(TestCase):
 class UpdateManagerTestCase(TestCase):
     def setUp(self) -> None:
         self.bot = Bot.objects.create(
-            name="bot", token="token",
+            name="bot",
+            token="token",
         )
 
     def test_from_telegram__message(self):
@@ -357,9 +354,9 @@ class UpdateManagerTestCase(TestCase):
             update_id=40,
             message=TelegramMessage(
                 message_id=41,
-                chat=TelegramChat(id=42, type='private'),
+                chat=TelegramChat(id=42, type="private"),
                 date=timezone.datetime(2000, 1, 1, tzinfo=timezone.utc),
-            )
+            ),
         )
 
         Update.objects.from_telegram(
@@ -379,13 +376,11 @@ class UpdateManagerTestCase(TestCase):
             update_id=40,
             channel_post=TelegramMessage(
                 message_id=41,
-                chat=TelegramChat(id=-42, type='channel', title='the_channel'),
+                chat=TelegramChat(id=-42, type="channel", title="the_channel"),
                 date=timezone.datetime(2000, 1, 1, tzinfo=timezone.utc),
-                sender_chat=TelegramChat(
-                    id=-42, type='channel', title='the_channel'
-                ),
-                text='post'
-            )
+                sender_chat=TelegramChat(id=-42, type="channel", title="the_channel"),
+                text="post",
+            ),
         )
         Update.objects.from_telegram(
             bot=self.bot,
@@ -401,13 +396,11 @@ class UpdateManagerTestCase(TestCase):
             update_id=40,
             edited_channel_post=TelegramMessage(
                 message_id=41,
-                chat=TelegramChat(id=-42, type='channel', title='the_channel'),
+                chat=TelegramChat(id=-42, type="channel", title="the_channel"),
                 date=timezone.datetime(2000, 1, 1, tzinfo=timezone.utc),
-                sender_chat=TelegramChat(
-                    id=-42, type='channel', title='the_channel'
-                ),
-                text='post'
-            )
+                sender_chat=TelegramChat(id=-42, type="channel", title="the_channel"),
+                text="post",
+            ),
         )
         Update.objects.from_telegram(
             bot=self.bot,
@@ -432,8 +425,8 @@ class UpdateManagerTestCase(TestCase):
                     username="Testusername",
                     first_name="Test Firstname",
                     last_name="Test Lastname",
-                )
-            )
+                ),
+            ),
         )
 
         Update.objects.from_telegram(
@@ -454,38 +447,36 @@ class ChatManagerTestCase(TestCase):
 
     def test_from_telegram(self):
         photo = ChatPhoto(
-            small_file_id='small_file_id',
-            small_file_unique_id='small_file_unique_id',
-            big_file_id='big_file_id',
-            big_file_unique_id='big_file_unique_id',
+            small_file_id="small_file_id",
+            small_file_unique_id="small_file_unique_id",
+            big_file_id="big_file_id",
+            big_file_unique_id="big_file_unique_id",
         )
         permissions = ChatPermissions(can_send_messages=True)
         location = ChatLocation(
             location=Location(longitude=10.5, latitude=62.8),
-            address='address',
+            address="address",
         )
         telegram_chat = TelegramChat(
             id=1,
-            type='private',
-            title='title',
-            username='username',
-            first_name='first_name',
-            last_name='last_name',
+            type="private",
+            title="title",
+            username="username",
+            first_name="first_name",
+            last_name="last_name",
             photo=photo,
-            bio='bio',
-            description='description',
-            invite_link='invite_link',
+            bio="bio",
+            description="description",
+            invite_link="invite_link",
             permissions=permissions,
             slow_mode_delay=1,
-            sticker_set_name='sticker_set_name',
+            sticker_set_name="sticker_set_name",
             can_set_sticker_set=True,
             linked_chat_id=1,
             location=location,
         )
 
-        Chat.objects.from_telegram(
-            telegram_chat=telegram_chat, bot=self.bot
-        )
+        Chat.objects.from_telegram(telegram_chat=telegram_chat, bot=self.bot)
 
         chat = Chat.objects.first()
 
@@ -501,8 +492,7 @@ class ChatManagerTestCase(TestCase):
         self.assertEqual(chat.permissions, telegram_chat.permissions)
         self.assertEqual(chat.slow_mode_delay, telegram_chat.slow_mode_delay)
         self.assertEqual(chat.sticker_set_name, telegram_chat.sticker_set_name)
-        self.assertEqual(chat.can_set_sticker_set,
-                         telegram_chat.can_set_sticker_set)
+        self.assertEqual(chat.can_set_sticker_set, telegram_chat.can_set_sticker_set)
         self.assertEqual(chat.linked_chat_id, telegram_chat.linked_chat_id)
         self.assertEqual(chat.location, telegram_chat.location)
 
@@ -516,25 +506,27 @@ class ChatTestCase(TestCase):
         self.chat = Chat.objects.create(
             bot=bot,
             chat_id=42,
-            type='private',
+            type="private",
         )
 
-    @patch.object(Api, 'send_message')
+    @patch.object(Api, "send_message")
     def test_reply(self, mocked_send_message: Mock):
-        mocked_send_message.return_value = TelegramMessage.from_dict({
-            'message_id': 42,
-            'from': {'id': 142,
-                     'is_bot': True,
-                     'first_name': 'bot_name',
-                     'username': 'bot_user_name'},
-            'chat': {'id': 42,
-                     'type': 'private'},
-            'date': 1,
-            'text': 'text'})
-
-        self.chat.reply(
-            text="Reply"
+        mocked_send_message.return_value = TelegramMessage.from_dict(
+            {
+                "message_id": 42,
+                "from": {
+                    "id": 142,
+                    "is_bot": True,
+                    "first_name": "bot_name",
+                    "username": "bot_user_name",
+                },
+                "chat": {"id": 42, "type": "private"},
+                "date": 1,
+                "text": "text",
+            }
         )
+
+        self.chat.reply(text="Reply")
 
         mocked_send_message.assert_called_with(
             chat_id=self.chat.chat_id,
@@ -552,10 +544,8 @@ class ChatTestCase(TestCase):
 class FormManagerTestCase(TestCase):
     def setUp(self) -> None:
         self.user = User.objects.create(user_id=1, is_bot=False)
-        self.bot = Bot.objects.create(name='bot', token='token')
-        self.chat = Chat.objects.create(
-            bot=self.bot, chat_id=1, type='private'
-        )
+        self.bot = Bot.objects.create(name="bot", token="token")
+        self.chat = Chat.objects.create(bot=self.bot, chat_id=1, type="private")
         self.form = Form.objects.create()
         self.root_message = Message.objects.create(
             direction=Message.DIRECTION_OUT,
@@ -572,12 +562,12 @@ class FormManagerTestCase(TestCase):
             message_id=2,
             chat=self.chat,
             date=timezone.datetime(2000, 1, 1, 1, tzinfo=timezone.utc),
-            text="Answer 1"
+            text="Answer 1",
         )
         update = Update.objects.create(
             bot=self.bot,
             message=answer,
-            update_id='1',
+            update_id="1",
         )
 
         form = Form.objects.get_form(update=update)
@@ -589,12 +579,12 @@ class FormManagerTestCase(TestCase):
             callback_query_id="1",
             from_user=self.user,
             chat_instance="1",
-            message=self.root_message
+            message=self.root_message,
         )
         update = Update.objects.create(
             bot=self.bot,
             callback_query=callback_query,
-            update_id='1',
+            update_id="1",
         )
 
         form = Form.objects.get_form(update=update)
@@ -657,14 +647,12 @@ class MessageManagerTestCase(TestCase):
             new_chat_members=[
                 TelegramUser(id=42, is_bot=False),
                 TelegramUser(id=43, is_bot=False),
-            ]
+            ],
         )
         direction = Message.DIRECTION_OUT
 
         Message.objects.from_telegram(
-            bot=self.bot,
-            telegram_message=telegram_message,
-            direction=direction
+            bot=self.bot, telegram_message=telegram_message, direction=direction
         )
 
         chat = Chat.objects.first()
@@ -686,13 +674,11 @@ class MessageManagerTestCase(TestCase):
         self.assertIn(new_chat_member_2, message.new_chat_members.all())
 
     def test_get_message(self):
-        chat = Chat.objects.create(
-            bot=self.bot, chat_id=42, type="private"
-        )
+        chat = Chat.objects.create(bot=self.bot, chat_id=42, type="private")
         wanted = Message.objects.create(
             message_id=42,
             date=timezone.datetime(2000, 1, 1, tzinfo=timezone.utc),
-            chat=chat
+            chat=chat,
         )
 
         found = Message.objects.get_message(
@@ -706,13 +692,11 @@ class MessageManagerTestCase(TestCase):
         self.assertEqual(found, wanted)
 
     def test_get_message__wrong_chat_id(self):
-        chat = Chat.objects.create(
-            bot=self.bot, chat_id=42, type="private"
-        )
+        chat = Chat.objects.create(bot=self.bot, chat_id=42, type="private")
         wanted = Message.objects.create(
             message_id=42,
             date=timezone.datetime(2000, 1, 1, tzinfo=timezone.utc),
-            chat=chat
+            chat=chat,
         )
 
         found = Message.objects.get_message(
@@ -729,19 +713,11 @@ class MessageManagerTestCase(TestCase):
 class MessageTestCase(TestCase):
     def test_entities(self):
         message = Message(
-            text='/start /help',
+            text="/start /help",
             _entities=[
-                {
-                    'offset': 0,
-                    'length': 6,
-                    'type': 'bot_command'
-                },
-                {
-                    'offset': 7,
-                    'length': 5,
-                    'type': 'bot_command'
-                },
-            ]
+                {"offset": 0, "length": 6, "type": "bot_command"},
+                {"offset": 7, "length": 5, "type": "bot_command"},
+            ],
         )
 
         entities = message.entities
@@ -750,21 +726,21 @@ class MessageTestCase(TestCase):
             entities,
             [
                 MessageEntity(
-                    type='bot_command',
-                    text='/start',
+                    type="bot_command",
+                    text="/start",
                     offset=0,
                     length=6,
                 ),
                 MessageEntity(
-                    type='bot_command',
-                    text='/help',
+                    type="bot_command",
+                    text="/help",
                     offset=7,
                     length=5,
                 ),
-            ]
+            ],
         )
 
-    @patch.object(Api, 'send_message')
+    @patch.object(Api, "send_message")
     def test_reply(self, mocked_send_message: Mock):
         bot = Bot.objects.create(
             name="bot",
@@ -773,7 +749,7 @@ class MessageTestCase(TestCase):
         chat = Chat.objects.create(
             bot=bot,
             chat_id=142,
-            type='private',
+            type="private",
         )
         incoming_message = Message.objects.create(
             message_id=42,
@@ -786,7 +762,7 @@ class MessageTestCase(TestCase):
             date=timezone.datetime(1999, 12, 31, tzinfo=timezone.utc),
             from_user=TelegramUser(id=1, is_bot=True),
             chat=TelegramChat(id=142, type="private"),
-            text='Reply',
+            text="Reply",
             reply_to_message=TelegramMessage(
                 message_id=42,
                 chat=TelegramChat(id=142, type="private"),
@@ -804,7 +780,6 @@ class MessageTestCase(TestCase):
             text="Reply",
             parse_mode=None,
             reply_to_message_id=42,
-
         )
 
         user = User.objects.first()
@@ -812,22 +787,23 @@ class MessageTestCase(TestCase):
 
         self.assertEqual(message.direction, Message.DIRECTION_OUT)
         self.assertEqual(message.message_id, 43)
-        self.assertEqual(message.date,
-                         timezone.datetime(1999, 12, 31, tzinfo=timezone.utc))
+        self.assertEqual(
+            message.date, timezone.datetime(1999, 12, 31, tzinfo=timezone.utc)
+        )
         self.assertEqual(message.chat, chat)
         self.assertEqual(message.from_user, user)
         self.assertEqual(message.reply_to_message, incoming_message)
         self.assertEqual(incoming_message.reply_message, message)
 
-    @patch.object(Api, 'edit_message_text')
+    @patch.object(Api, "edit_message_text")
     def test_edit(self, mocked_edit_message_text: Mock):
-        old_text = 'old text'
-        new_text = 'new text'
-        old_markup =InlineKeyboardMarkup(
+        old_text = "old text"
+        new_text = "new text"
+        old_markup = InlineKeyboardMarkup(
             inline_keyboard=[
                 [
                     InlineKeyboardButton("Yes", callback_data="yes"),
-                    InlineKeyboardButton("No", callback_data="no")
+                    InlineKeyboardButton("No", callback_data="no"),
                 ]
             ]
         )
@@ -845,21 +821,22 @@ class MessageTestCase(TestCase):
         chat = Chat.objects.create(
             bot=bot,
             chat_id=142,
-            type='private',
+            type="private",
         )
         message = Message.objects.create(
             message_id=42,
             date=timezone.datetime(1999, 12, 31, tzinfo=timezone.utc),
             chat=chat,
             text=old_text,
-            _reply_markup=old_markup.to_dict()
+            _reply_markup=old_markup.to_dict(),
         )
         mocked_edit_message_text.return_value = TelegramMessage(
             message_id=42,
             date=timezone.datetime(1999, 12, 31, tzinfo=timezone.utc),
             chat=TelegramChat(id=142, type="private"),
             text=new_text,
-            reply_markup=new_markup)
+            reply_markup=new_markup,
+        )
 
         returned = message.edit(
             text=new_text,
@@ -872,7 +849,7 @@ class MessageTestCase(TestCase):
             parse_mode=None,
             entities=None,
             disable_web_page_preview=None,
-            reply_markup=new_markup
+            reply_markup=new_markup,
         )
 
         message.refresh_from_db()
@@ -881,14 +858,13 @@ class MessageTestCase(TestCase):
         self.assertEqual(message.text, new_text)
         self.assertEqual(message, returned)
 
-    @patch.object(Api, 'edit_message_reply_markup')
-    def test_edit_reply_markup(self,
-                               mocked_edit_message_reply_markup: Mock):
-        old_markup =InlineKeyboardMarkup(
+    @patch.object(Api, "edit_message_reply_markup")
+    def test_edit_reply_markup(self, mocked_edit_message_reply_markup: Mock):
+        old_markup = InlineKeyboardMarkup(
             inline_keyboard=[
                 [
                     InlineKeyboardButton("Yes", callback_data="yes"),
-                    InlineKeyboardButton("No", callback_data="no")
+                    InlineKeyboardButton("No", callback_data="no"),
                 ]
             ]
         )
@@ -906,28 +882,27 @@ class MessageTestCase(TestCase):
         chat = Chat.objects.create(
             bot=bot,
             chat_id=142,
-            type='private',
+            type="private",
         )
         message = Message.objects.create(
             message_id=42,
             date=timezone.datetime(1999, 12, 31, tzinfo=timezone.utc),
             chat=chat,
-            _reply_markup=old_markup.to_dict()
+            _reply_markup=old_markup.to_dict(),
         )
         mocked_edit_message_reply_markup.return_value = TelegramMessage(
             message_id=42,
             date=timezone.datetime(1999, 12, 31, tzinfo=timezone.utc),
             chat=TelegramChat(id=142, type="private"),
-            reply_markup=new_markup)
+            reply_markup=new_markup,
+        )
 
         returned = message.edit_reply_markup(
             reply_markup=new_markup,
         )
 
         mocked_edit_message_reply_markup.assert_called_with(
-            chat_id=chat.chat_id,
-            message_id=message.message_id,
-            reply_markup=new_markup
+            chat_id=chat.chat_id, message_id=message.message_id, reply_markup=new_markup
         )
 
         message.refresh_from_db()
@@ -957,7 +932,7 @@ class CallbackQueryManagerTestCase(TestCase):
                 date=timezone.datetime(2000, 1, 1, tzinfo=timezone.utc),
                 chat=TelegramChat(id=42, type="private"),
                 from_user=TelegramUser(id=40, is_bot=False),
-            )
+            ),
         )
 
         CallbackQuery.objects.from_telegram(
@@ -968,9 +943,7 @@ class CallbackQueryManagerTestCase(TestCase):
         callback_query = CallbackQuery.objects.first()
         user = User.objects.get(user_id=1111111)
         message = Message.objects.first()
-        self.assertEqual(
-            callback_query.callback_query_id,
-            telegram_callback_query.id)
+        self.assertEqual(callback_query.callback_query_id, telegram_callback_query.id)
         self.assertEqual(callback_query.from_user, user)
         self.assertEqual(callback_query.message, message)
         self.assertEqual(callback_query.chat.chat_id, 42)
@@ -984,7 +957,7 @@ class UpdateDefaultsTestCase(TestCase):
     def test_atr_not_none(self):
         something = self.Something()
         something.some_attr = "something"
-        defaults = {'some_attr': "something"}
+        defaults = {"some_attr": "something"}
 
         _update_defaults(
             something,
@@ -992,4 +965,4 @@ class UpdateDefaultsTestCase(TestCase):
             "some_attr",
         )
 
-        self.assertEqual(defaults, {'_some_attr': "something"})
+        self.assertEqual(defaults, {"_some_attr": "something"})

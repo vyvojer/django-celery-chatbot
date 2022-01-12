@@ -24,8 +24,9 @@
 
 """Contains telegram types"""
 from __future__ import annotations
-from dataclasses import asdict, dataclass, field
-from typing import Any, Callable, List, Optional, Union
+
+from dataclasses import asdict, dataclass
+from typing import Any, Callable, List, Union
 
 import dacite
 from django.utils import timezone
@@ -46,9 +47,7 @@ class TelegramType:
             TelegramType
 
         """
-        source = TelegramType.convert_date(
-            source, TelegramType.timestamp_to_datetime
-        )
+        source = TelegramType.convert_date(source, TelegramType.timestamp_to_datetime)
         source = TelegramType.convert_froms(source)
         o = dacite.from_dict(cls, source)
         return o
@@ -59,7 +58,7 @@ class TelegramType:
         for k, v in source.items():
             if isinstance(v, dict):
                 v = TelegramType.convert_date(v, convertor)
-            if k == 'date' or k.endswith('_date'):
+            if k == "date" or k.endswith("_date"):
                 converted[k] = convertor(v)
             else:
                 converted[k] = v
@@ -71,8 +70,8 @@ class TelegramType:
         for k, v in source.items():
             if isinstance(v, dict):
                 v = TelegramType.convert_froms(v)
-            if k == 'from':
-                converted['from_user'] = v
+            if k == "from":
+                converted["from_user"] = v
             else:
                 converted[k] = v
         return converted
@@ -91,13 +90,10 @@ class TelegramType:
 
     def to_dict(self, date_as_timestamp=False):
         dikt = asdict(
-            self,
-            dict_factory=lambda l: {k: v for k, v in l if v is not None}
+            self, dict_factory=lambda l: {k: v for k, v in l if v is not None}
         )
         if date_as_timestamp:
-            dikt = TelegramType.convert_date(
-                dikt, TelegramType.datetime_to_timestamp
-            )
+            dikt = TelegramType.convert_date(dikt, TelegramType.datetime_to_timestamp)
         return dikt
 
 
@@ -149,6 +145,7 @@ class Update(TelegramType):
             receive these updates.
 
     """
+
     update_id: int
     message: Message = None
     edited_message: Message = None
@@ -189,6 +186,7 @@ class WebhookInfo(TelegramType):
             subscribed to. Defaults to all update types except chat_member
 
     """
+
     url: str
     has_custom_certificate: bool
     pending_update_count: int
@@ -225,6 +223,7 @@ class User(TelegramType):
             queries. Returned only in getMe.
 
     """
+
     id: int
     is_bot: bool
     first_name: str = None
@@ -290,6 +289,7 @@ class Chat(TelegramType):
             supergroup is connected. Returned only in getChat.
 
     """
+
     id: int
     type: str
     title: str = None
@@ -445,6 +445,7 @@ class Message(TelegramType):
             login_url buttons are represented as ordinary url buttons.
 
     """
+
     message_id: int
     date: datetime
     chat: Chat
@@ -513,6 +514,7 @@ class MessageId(TelegramType):
         message_id: Unique message identifier
 
     """
+
     message_id: int
 
 
@@ -542,6 +544,7 @@ class MessageEntity(TelegramType):
             entity text
 
     """
+
     type: str
     offset: int
     length: int
@@ -569,6 +572,7 @@ class PhotoSize(TelegramType):
         file_size: Optional. File size
 
     """
+
     file_id: str
     file_unique_id: str
     width: int
@@ -600,6 +604,7 @@ class Animation(TelegramType):
         file_size: Optional. File size
 
     """
+
     file_id: str
     file_unique_id: str
     width: int
@@ -637,6 +642,7 @@ class Audio(TelegramType):
             file belongs
 
     """
+
     file_id: str
     file_unique_id: str
     duration: int
@@ -668,6 +674,7 @@ class Document(TelegramType):
         file_size: Optional. File size
 
     """
+
     file_id: str
     file_unique_id: str
     thumb: Union[str, InputFile] = None
@@ -698,6 +705,7 @@ class Video(TelegramType):
         file_size: Optional. File size
 
     """
+
     file_id: str
     file_unique_id: str
     width: int
@@ -730,6 +738,7 @@ class VideoNote(TelegramType):
         file_size: Optional. File size
 
     """
+
     file_id: str
     file_unique_id: str
     length: int
@@ -756,6 +765,7 @@ class Voice(TelegramType):
         file_size: Optional. File size
 
     """
+
     file_id: str
     file_unique_id: str
     duration: int
@@ -783,6 +793,7 @@ class Contact(TelegramType):
             vCard
 
     """
+
     phone_number: str
     first_name: str
     last_name: str = None
@@ -803,6 +814,7 @@ class Dice(TelegramType):
             “” and “” base emoji, 1-64 for “” base emoji
 
     """
+
     emoji: str
     value: int
 
@@ -819,6 +831,7 @@ class PollOption(TelegramType):
         voter_count: Number of users that voted for this option
 
     """
+
     text: str
     voter_count: int
 
@@ -837,6 +850,7 @@ class PollAnswer(TelegramType):
             user. May be empty if the user retracted their vote.
 
     """
+
     poll_id: str
     user: User
     option_ids: List[int]
@@ -873,6 +887,7 @@ class Poll(TelegramType):
             will be automatically closed
 
     """
+
     id: str
     question: str
     options: List[PollOption]
@@ -910,6 +925,7 @@ class Location(TelegramType):
             live locations only.
 
     """
+
     longitude: float
     latitude: float
     horizontal_accuracy: float = None
@@ -938,6 +954,7 @@ class Venue(TelegramType):
             supported types.)
 
     """
+
     location: Location
     title: str
     address: str
@@ -961,6 +978,7 @@ class ProximityAlertTriggered(TelegramType):
         distance: The distance between the users
 
     """
+
     traveler: User
     watcher: User
     distance: int
@@ -979,6 +997,7 @@ class MessageAutoDeleteTimerChanged(TelegramType):
             chat
 
     """
+
     message_auto_delete_time: int
 
 
@@ -992,6 +1011,7 @@ class VoiceChatStarted(TelegramType):
 
 
     """
+
     pass
 
 
@@ -1007,6 +1027,7 @@ class VoiceChatEnded(TelegramType):
         duration: Voice chat duration; in seconds
 
     """
+
     duration: int
 
 
@@ -1022,6 +1043,7 @@ class VoiceChatParticipantsInvited(TelegramType):
         users: Optional. New members that were invited to the voice chat
 
     """
+
     users: List[User] = None
 
 
@@ -1037,6 +1059,7 @@ class UserProfilePhotos(TelegramType):
         photos: Requested profile pictures (in up to 4 sizes each)
 
     """
+
     total_count: int
     photos: List[List[PhotoSize]]
 
@@ -1066,6 +1089,7 @@ class File(TelegramType):
             file.
 
     """
+
     file_id: str
     file_unique_id: str
     file_size: int = None
@@ -1102,6 +1126,7 @@ class ReplyKeyboardMarkup(TelegramType):
             new language. Other users in the group don't see the keyboard.
 
     """
+
     keyboard: List[List[KeyboardButton]]
     resize_keyboard: bool = None
     one_time_keyboard: bool = None
@@ -1132,6 +1157,7 @@ class KeyboardButton(TelegramType):
             Available in private chats only
 
     """
+
     text: str
     request_contact: bool = None
     request_location: bool = None
@@ -1153,6 +1179,7 @@ class KeyboardButtonPollType(TelegramType):
             to create a poll of any type.
 
     """
+
     type: str = None
 
 
@@ -1182,6 +1209,7 @@ class ReplyKeyboardRemove(TelegramType):
             to users who haven't voted yet.
 
     """
+
     remove_keyboard: bool
     selective: bool = None
 
@@ -1199,6 +1227,7 @@ class InlineKeyboardMarkup(TelegramType):
             of InlineKeyboardButton objects
 
     """
+
     inline_keyboard: List[List[InlineKeyboardButton]]
 
 
@@ -1241,6 +1270,7 @@ class InlineKeyboardButton(TelegramType):
             of button must always be the first button in the first row.
 
     """
+
     text: str
     url: str = None
     login_url: LoginUrl = None
@@ -1281,6 +1311,7 @@ class LoginUrl(TelegramType):
             for your bot to send messages to the user.
 
     """
+
     url: str
     forward_text: str = None
     bot_username: str = None
@@ -1316,6 +1347,7 @@ class CallbackQuery(TelegramType):
             serves as the unique identifier for the game
 
     """
+
     id: str
     from_user: User
     chat_instance: str
@@ -1345,6 +1377,7 @@ class ForceReply(TelegramType):
             (has reply_to_message_id), sender of the original message.
 
     """
+
     force_reply: bool
     selective: bool = None
 
@@ -1371,6 +1404,7 @@ class ChatPhoto(TelegramType):
             different bots. Can't be used to download or reuse the file.
 
     """
+
     small_file_id: str
     small_file_unique_id: str
     big_file_id: str
@@ -1398,6 +1432,7 @@ class ChatInviteLink(TelegramType):
             link; 1-99999
 
     """
+
     invite_link: str
     creator: User
     is_primary: bool
@@ -1470,6 +1505,7 @@ class ChatMember(TelegramType):
             restrictions will be lifted for this user; unix time
 
     """
+
     user: User
     status: str
     custom_title: str = None
@@ -1511,6 +1547,7 @@ class ChatMemberUpdated(TelegramType):
             to join the chat; for joining by invite link events only.
 
     """
+
     chat: Chat
     from_user: User
     date: datetime
@@ -1550,6 +1587,7 @@ class ChatPermissions(TelegramType):
             messages. Ignored in public supergroups
 
     """
+
     can_send_messages: bool = None
     can_send_media_messages: bool = None
     can_send_polls: bool = None
@@ -1574,6 +1612,7 @@ class ChatLocation(TelegramType):
             owner
 
     """
+
     location: Location
     address: str
 
@@ -1591,6 +1630,7 @@ class BotCommand(TelegramType):
         description: Description of the command, 3-256 characters.
 
     """
+
     command: str
     description: str
 
@@ -1613,6 +1653,7 @@ class ResponseParameters(TelegramType):
             number of seconds left to wait before the request can be repeated
 
     """
+
     migrate_to_chat_id: int = None
     retry_after: int = None
 
@@ -1640,6 +1681,7 @@ class InputMediaPhoto(TelegramType):
             the caption, which can be specified instead of parse_mode
 
     """
+
     type: str
     media: str
     caption: str = None
@@ -1684,6 +1726,7 @@ class InputMediaVideo(TelegramType):
             suitable for streaming
 
     """
+
     type: str
     media: str
     thumb: Union[str, InputFile] = None
@@ -1732,6 +1775,7 @@ class InputMediaAnimation(TelegramType):
         duration: Optional. Animation duration
 
     """
+
     type: str
     media: str
     thumb: Union[str, InputFile] = None
@@ -1778,6 +1822,7 @@ class InputMediaAudio(TelegramType):
         title: Optional. Title of the audio
 
     """
+
     type: str
     media: str
     thumb: Union[str, InputFile] = None
@@ -1825,6 +1870,7 @@ class InputMediaDocument(TelegramType):
             of an album.
 
     """
+
     type: str
     media: str
     thumb: Union[str, InputFile] = None
@@ -1845,6 +1891,7 @@ class InputFile(TelegramType):
 
 
     """
+
     pass
 
 
@@ -1873,6 +1920,7 @@ class Sticker(TelegramType):
         file_size: Optional. File size
 
     """
+
     file_id: str
     file_unique_id: str
     width: int
@@ -1901,6 +1949,7 @@ class StickerSet(TelegramType):
         thumb: Optional. Sticker set thumbnail in the .WEBP or .TGS format
 
     """
+
     name: str
     title: str
     is_animated: bool
@@ -1930,6 +1979,7 @@ class MaskPosition(TelegramType):
             size.
 
     """
+
     point: str
     x_shift: float
     y_shift: float
@@ -1954,6 +2004,7 @@ class InlineQuery(TelegramType):
             user location
 
     """
+
     id: str
     from_user: User
     query: str
@@ -1983,6 +2034,7 @@ class InlineQueryResultArticle(TelegramType):
         thumb_height: Optional. Thumbnail height
 
     """
+
     type: str
     id: str
     title: str
@@ -1990,7 +2042,7 @@ class InlineQueryResultArticle(TelegramType):
         InputTextMessageContent,
         InputLocationMessageContent,
         InputVenueMessageContent,
-        InputContactMessageContent
+        InputContactMessageContent,
     ]
     reply_markup: InlineKeyboardMarkup = None
     url: str = None
@@ -2032,6 +2084,7 @@ class InlineQueryResultPhoto(TelegramType):
             instead of the photo
 
     """
+
     type: str
     id: str
     photo_url: str
@@ -2048,7 +2101,7 @@ class InlineQueryResultPhoto(TelegramType):
         InputTextMessageContent,
         InputLocationMessageContent,
         InputVenueMessageContent,
-        InputContactMessageContent
+        InputContactMessageContent,
     ] = None
 
 
@@ -2087,6 +2140,7 @@ class InlineQueryResultGif(TelegramType):
             instead of the GIF animation
 
     """
+
     type: str
     id: str
     gif_url: str
@@ -2104,7 +2158,7 @@ class InlineQueryResultGif(TelegramType):
         InputTextMessageContent,
         InputLocationMessageContent,
         InputVenueMessageContent,
-        InputContactMessageContent
+        InputContactMessageContent,
     ] = None
 
 
@@ -2143,6 +2197,7 @@ class InlineQueryResultMpeg4Gif(TelegramType):
             instead of the video animation
 
     """
+
     type: str
     id: str
     mpeg4_url: str
@@ -2160,7 +2215,7 @@ class InlineQueryResultMpeg4Gif(TelegramType):
         InputTextMessageContent,
         InputLocationMessageContent,
         InputVenueMessageContent,
-        InputContactMessageContent
+        InputContactMessageContent,
     ] = None
 
 
@@ -2202,6 +2257,7 @@ class InlineQueryResultVideo(TelegramType):
             (e.g., a YouTube video).
 
     """
+
     type: str
     id: str
     video_url: str
@@ -2220,7 +2276,7 @@ class InlineQueryResultVideo(TelegramType):
         InputTextMessageContent,
         InputLocationMessageContent,
         InputVenueMessageContent,
-        InputContactMessageContent
+        InputContactMessageContent,
     ] = None
 
 
@@ -2251,6 +2307,7 @@ class InlineQueryResultAudio(TelegramType):
             instead of the audio
 
     """
+
     type: str
     id: str
     audio_url: str
@@ -2265,7 +2322,7 @@ class InlineQueryResultAudio(TelegramType):
         InputTextMessageContent,
         InputLocationMessageContent,
         InputVenueMessageContent,
-        InputContactMessageContent
+        InputContactMessageContent,
     ] = None
 
 
@@ -2296,6 +2353,7 @@ class InlineQueryResultVoice(TelegramType):
             instead of the voice recording
 
     """
+
     type: str
     id: str
     voice_url: str
@@ -2309,7 +2367,7 @@ class InlineQueryResultVoice(TelegramType):
         InputTextMessageContent,
         InputLocationMessageContent,
         InputVenueMessageContent,
-        InputContactMessageContent
+        InputContactMessageContent,
     ] = None
 
 
@@ -2346,6 +2404,7 @@ class InlineQueryResultDocument(TelegramType):
         thumb_height: Optional. Thumbnail height
 
     """
+
     type: str
     id: str
     title: str
@@ -2360,7 +2419,7 @@ class InlineQueryResultDocument(TelegramType):
         InputTextMessageContent,
         InputLocationMessageContent,
         InputVenueMessageContent,
-        InputContactMessageContent
+        InputContactMessageContent,
     ] = None
     thumb_url: str = None
     thumb_width: int = None
@@ -2400,6 +2459,7 @@ class InlineQueryResultLocation(TelegramType):
         thumb_height: Optional. Thumbnail height
 
     """
+
     type: str
     id: str
     latitude: float
@@ -2414,7 +2474,7 @@ class InlineQueryResultLocation(TelegramType):
         InputTextMessageContent,
         InputLocationMessageContent,
         InputVenueMessageContent,
-        InputContactMessageContent
+        InputContactMessageContent,
     ] = None
     thumb_url: str = None
     thumb_width: int = None
@@ -2453,6 +2513,7 @@ class InlineQueryResultVenue(TelegramType):
         thumb_height: Optional. Thumbnail height
 
     """
+
     type: str
     id: str
     latitude: float
@@ -2468,7 +2529,7 @@ class InlineQueryResultVenue(TelegramType):
         InputTextMessageContent,
         InputLocationMessageContent,
         InputVenueMessageContent,
-        InputContactMessageContent
+        InputContactMessageContent,
     ] = None
     thumb_url: str = None
     thumb_width: int = None
@@ -2500,6 +2561,7 @@ class InlineQueryResultContact(TelegramType):
         thumb_height: Optional. Thumbnail height
 
     """
+
     type: str
     id: str
     phone_number: str
@@ -2511,7 +2573,7 @@ class InlineQueryResultContact(TelegramType):
         InputTextMessageContent,
         InputLocationMessageContent,
         InputVenueMessageContent,
-        InputContactMessageContent
+        InputContactMessageContent,
     ] = None
     thumb_url: str = None
     thumb_width: int = None
@@ -2532,6 +2594,7 @@ class InlineQueryResultGame(TelegramType):
         reply_markup: Optional. Inline keyboard attached to the message
 
     """
+
     type: str
     id: str
     game_short_name: str
@@ -2565,6 +2628,7 @@ class InlineQueryResultCachedPhoto(TelegramType):
             instead of the photo
 
     """
+
     type: str
     id: str
     photo_file_id: str
@@ -2578,7 +2642,7 @@ class InlineQueryResultCachedPhoto(TelegramType):
         InputTextMessageContent,
         InputLocationMessageContent,
         InputVenueMessageContent,
-        InputContactMessageContent
+        InputContactMessageContent,
     ] = None
 
 
@@ -2608,6 +2672,7 @@ class InlineQueryResultCachedGif(TelegramType):
             instead of the GIF animation
 
     """
+
     type: str
     id: str
     gif_file_id: str
@@ -2620,7 +2685,7 @@ class InlineQueryResultCachedGif(TelegramType):
         InputTextMessageContent,
         InputLocationMessageContent,
         InputVenueMessageContent,
-        InputContactMessageContent
+        InputContactMessageContent,
     ] = None
 
 
@@ -2651,6 +2716,7 @@ class InlineQueryResultCachedMpeg4Gif(TelegramType):
             instead of the video animation
 
     """
+
     type: str
     id: str
     mpeg4_file_id: str
@@ -2663,7 +2729,7 @@ class InlineQueryResultCachedMpeg4Gif(TelegramType):
         InputTextMessageContent,
         InputLocationMessageContent,
         InputVenueMessageContent,
-        InputContactMessageContent
+        InputContactMessageContent,
     ] = None
 
 
@@ -2686,6 +2752,7 @@ class InlineQueryResultCachedSticker(TelegramType):
             instead of the sticker
 
     """
+
     type: str
     id: str
     sticker_file_id: str
@@ -2694,7 +2761,7 @@ class InlineQueryResultCachedSticker(TelegramType):
         InputTextMessageContent,
         InputLocationMessageContent,
         InputVenueMessageContent,
-        InputContactMessageContent
+        InputContactMessageContent,
     ] = None
 
 
@@ -2725,6 +2792,7 @@ class InlineQueryResultCachedDocument(TelegramType):
             instead of the file
 
     """
+
     type: str
     id: str
     title: str
@@ -2738,7 +2806,7 @@ class InlineQueryResultCachedDocument(TelegramType):
         InputTextMessageContent,
         InputLocationMessageContent,
         InputVenueMessageContent,
-        InputContactMessageContent
+        InputContactMessageContent,
     ] = None
 
 
@@ -2769,6 +2837,7 @@ class InlineQueryResultCachedVideo(TelegramType):
             instead of the video
 
     """
+
     type: str
     id: str
     video_file_id: str
@@ -2782,7 +2851,7 @@ class InlineQueryResultCachedVideo(TelegramType):
         InputTextMessageContent,
         InputLocationMessageContent,
         InputVenueMessageContent,
-        InputContactMessageContent
+        InputContactMessageContent,
     ] = None
 
 
@@ -2812,6 +2881,7 @@ class InlineQueryResultCachedVoice(TelegramType):
             instead of the voice message
 
     """
+
     type: str
     id: str
     voice_file_id: str
@@ -2824,7 +2894,7 @@ class InlineQueryResultCachedVoice(TelegramType):
         InputTextMessageContent,
         InputLocationMessageContent,
         InputVenueMessageContent,
-        InputContactMessageContent
+        InputContactMessageContent,
     ] = None
 
 
@@ -2853,6 +2923,7 @@ class InlineQueryResultCachedAudio(TelegramType):
             instead of the audio
 
     """
+
     type: str
     id: str
     audio_file_id: str
@@ -2864,7 +2935,7 @@ class InlineQueryResultCachedAudio(TelegramType):
         InputTextMessageContent,
         InputLocationMessageContent,
         InputVenueMessageContent,
-        InputContactMessageContent
+        InputContactMessageContent,
     ] = None
 
 
@@ -2886,6 +2957,7 @@ class InputTextMessageContent(TelegramType):
             links in the sent message
 
     """
+
     message_text: str
     parse_mode: str = None
     entities: List[MessageEntity] = None
@@ -2915,6 +2987,7 @@ class InputLocationMessageContent(TelegramType):
             member, in meters. Must be between 1 and 100000 if specified.
 
     """
+
     latitude: float
     longitude: float
     horizontal_accuracy: float = None
@@ -2946,6 +3019,7 @@ class InputVenueMessageContent(TelegramType):
             supported types.)
 
     """
+
     latitude: float
     longitude: float
     title: str
@@ -2972,6 +3046,7 @@ class InputContactMessageContent(TelegramType):
             vCard, 0-2048 bytes
 
     """
+
     phone_number: str
     first_name: str
     last_name: str = None
@@ -2998,6 +3073,7 @@ class ChosenInlineResult(TelegramType):
             to edit the message.
 
     """
+
     result_id: str
     from_user: User
     query: str
@@ -3021,6 +3097,7 @@ class LabeledPrice(TelegramType):
             currency (2 for the majority of currencies).
 
     """
+
     label: str
     amount: int
 
@@ -3045,6 +3122,7 @@ class Invoice(TelegramType):
             currency (2 for the majority of currencies).
 
     """
+
     title: str
     description: str
     start_parameter: str
@@ -3068,6 +3146,7 @@ class ShippingAddress(TelegramType):
         post_code: Address post code
 
     """
+
     country_code: str
     state: str
     city: str
@@ -3090,6 +3169,7 @@ class OrderInfo(TelegramType):
         shipping_address: Optional. User shipping address
 
     """
+
     name: str = None
     phone_number: str = None
     email: str = None
@@ -3109,6 +3189,7 @@ class ShippingOption(TelegramType):
         prices: List of price portions
 
     """
+
     id: str
     title: str
     prices: List[LabeledPrice]
@@ -3136,6 +3217,7 @@ class SuccessfulPayment(TelegramType):
         order_info: Optional. Order info provided by the user
 
     """
+
     currency: str
     total_amount: int
     invoice_payload: str
@@ -3159,6 +3241,7 @@ class ShippingQuery(TelegramType):
         shipping_address: User specified shipping address
 
     """
+
     id: str
     from_user: User
     invoice_payload: str
@@ -3187,6 +3270,7 @@ class PreCheckoutQuery(TelegramType):
         order_info: Optional. Order info provided by the user
 
     """
+
     id: str
     from_user: User
     currency: str
@@ -3210,6 +3294,7 @@ class PassportData(TelegramType):
         credentials: Encrypted credentials required to decrypt the data
 
     """
+
     data: List[EncryptedPassportElement]
     credentials: EncryptedCredentials
 
@@ -3233,6 +3318,7 @@ class PassportFile(TelegramType):
         file_date: Unix time when the file was uploaded
 
     """
+
     file_id: str
     file_unique_id: str
     file_size: int
@@ -3292,6 +3378,7 @@ class EncryptedPassportElement(TelegramType):
             verified using the accompanying EncryptedCredentials.
 
     """
+
     type: str
     hash: str
     data: str = None
@@ -3322,6 +3409,7 @@ class EncryptedCredentials(TelegramType):
             key, required for data decryption
 
     """
+
     data: str
     hash: str
     secret: str
@@ -3345,6 +3433,7 @@ class PassportElementErrorDataField(TelegramType):
         message: Error message
 
     """
+
     source: str
     type: str
     field_name: str
@@ -3371,6 +3460,7 @@ class PassportElementErrorFrontSide(TelegramType):
         message: Error message
 
     """
+
     source: str
     type: str
     file_hash: str
@@ -3395,6 +3485,7 @@ class PassportElementErrorReverseSide(TelegramType):
         message: Error message
 
     """
+
     source: str
     type: str
     file_hash: str
@@ -3418,6 +3509,7 @@ class PassportElementErrorSelfie(TelegramType):
         message: Error message
 
     """
+
     source: str
     type: str
     file_hash: str
@@ -3442,6 +3534,7 @@ class PassportElementErrorFile(TelegramType):
         message: Error message
 
     """
+
     source: str
     type: str
     file_hash: str
@@ -3466,6 +3559,7 @@ class PassportElementErrorFiles(TelegramType):
         message: Error message
 
     """
+
     source: str
     type: str
     file_hashes: List[str]
@@ -3491,6 +3585,7 @@ class PassportElementErrorTranslationFile(TelegramType):
         message: Error message
 
     """
+
     source: str
     type: str
     file_hash: str
@@ -3516,6 +3611,7 @@ class PassportElementErrorTranslationFiles(TelegramType):
         message: Error message
 
     """
+
     source: str
     type: str
     file_hashes: List[str]
@@ -3538,6 +3634,7 @@ class PassportElementErrorUnspecified(TelegramType):
         message: Error message
 
     """
+
     source: str
     type: str
     element_hash: str
@@ -3567,6 +3664,7 @@ class Game(TelegramType):
             message in chats. Upload via BotFather
 
     """
+
     title: str
     description: str
     photo: List[PhotoSize]
@@ -3585,6 +3683,7 @@ class CallbackGame(TelegramType):
 
 
     """
+
     pass
 
 
@@ -3601,6 +3700,7 @@ class GameHighScore(TelegramType):
         score: Score
 
     """
+
     position: int
     user: User
     score: int

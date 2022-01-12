@@ -46,40 +46,31 @@
 #  the Software is furnished to do so, subject to the following conditions:
 #
 #
-from django_chatbot.tests import TestCase, MockUser
-from django_chatbot.models import Bot
+from django_chatbot.tests import TestCase
 from testapp.models import Note
 
 
 class CommandsTestCase(TestCase):
+    bot_name = "notes"
+
     def setUp(self) -> None:
-        super().setUp()
-        self.bot = Bot.objects.create(
-            name='bot', token='token',
-            root_handlerconf='testapp.handlers'
-        )
-        self.test_user = MockUser(bot=self.bot)
         self.note_1 = Note.objects.create(
-            user=self.test_user.user, title="Title 1", text="Text 1"
+            user=self.user.user, title="Title 1", text="Text 1"
         )
         self.note_2 = Note.objects.create(
-            user=self.test_user.user, title="Title 2", text="Text 2"
+            user=self.user.user, title="Title 2", text="Text 2"
         )
         self.note_1 = Note.objects.create(
-            user=self.test_user.user, title="Title 3", text="Text 3"
+            user=self.user.user, title="Title 3", text="Text 3"
         )
 
     def test_iterating_notes(self):
-        self.test_user.send_message('/notes')
-        bot_message = self.test_user.messages()[0]
-        self.assertIn("Title 1", bot_message.text)
-        self.assertIn("Text 1", bot_message.text)
-        self.assertIn("Note 1 of 3", bot_message.text)
+        response = self.client.send_message("/notes")
+        self.assertContains(response, "Title 1")
+        self.assertContains(response, "Text 1")
+        self.assertContains(response, "Note 1 of 3")
 
-        self.test_user.send_callback_query(data="next")
-        bot_message = self.test_user.messages()[0]
-        self.assertIn("Title 2", bot_message.text)
-        self.assertIn("Text 2", bot_message.text)
-        self.assertIn("Note 2 of 3", bot_message.text)
-
-
+        response = self.client.send_callback_query(data="next")
+        self.assertContains(response, "Title 2")
+        self.assertContains(response, "Text 2")
+        self.assertContains(response, "Note 2 of 3")

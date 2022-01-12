@@ -46,46 +46,19 @@
 #  the Software is furnished to do so, subject to the following conditions:
 #
 #
-from django_chatbot.tests import TestCase, MockUser
-from django_chatbot.models import Bot
+from django_chatbot.tests import TestCase
 
 
 class CommandsTestCase(TestCase):
-    def setUp(self) -> None:
-        super().setUp()
-        self.bot = Bot.objects.create(
-            name='bot', token='token',
-            root_handlerconf='testapp.handlers'
-        )
-        self.user = MockUser(bot=self.bot)
 
     def test_default_handler(self):
-        self.assertEqual(self.mock_chatbot.last_message(), None)
-        self.user.send_message('help me')
-        self.assertIn(
-            "I don't understand you",
-            self.mock_chatbot.last_message()['text'],
-        )
-        self.assertEqual('help me', self.user.messages()[1].text)
-        self.assertIn(
-            "I don't understand you",
-            self.user.messages()[0].text
-        )
+        response = self.client.send_message('help me')
+        self.assertContains(response, "I don't understand you")
 
     def test_help_command(self):
-        self.assertEqual(self.mock_chatbot.last_message(), None)
-        self.user.send_message('/help')
-        self.assertIn(
-            "/add - add note",
-            self.mock_chatbot.last_message()['text'],
-        )
-        self.user.send_message('/start')
-        self.assertIn(
-            "/add - add note",
-            self.mock_chatbot.last_message()['text'],
-        )
-        self.user.send_message('/cancel')
-        self.assertIn(
-            "/add - add note",
-            self.mock_chatbot.last_message()['text'],
-        )
+        response = self.client.send_message('/help')
+        self.assertContains(response, "/add - add note")
+        self.client.send_message('/start')
+        self.assertContains(response, "/add - add note")
+        self.client.send_message('/cancel')
+        self.assertContains(response, "/add - add note")

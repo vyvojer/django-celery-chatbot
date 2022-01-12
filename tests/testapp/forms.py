@@ -11,16 +11,15 @@
 #
 #
 from __future__ import annotations
+
 import logging
 from dataclasses import dataclass
-from typing import Generator, List
 
 from django.core.exceptions import ValidationError
 
 from django_chatbot.forms import CharField, Field, Form, IntegerField
 from django_chatbot.models import Update
 from django_chatbot.telegram.types import InlineKeyboardButton
-
 from testapp.models import Note
 
 log = logging.getLogger(__name__)
@@ -37,15 +36,20 @@ class AddNote(Form):
 
     title = CharField(prompt="Input title:", min_length=5, max_length=15)
     text = CharField(prompt="Input text:", min_length=10, max_length=100)
-    confirm = ConfirmSaveField(inline_keyboard=[
-        [InlineKeyboardButton("Yes", callback_data="yes"),
-         InlineKeyboardButton("No", callback_data="cancel")]])
+    confirm = ConfirmSaveField(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton("Yes", callback_data="yes"),
+                InlineKeyboardButton("No", callback_data="cancel"),
+            ]
+        ]
+    )
 
     def on_complete(self, update, cleaned_data):
         telegram_object = update.telegram_object
         user = telegram_object.from_user
         chat = telegram_object.chat
-        if cleaned_data['confirm'] == 'cancel':
+        if cleaned_data["confirm"] == "cancel":
             chat.reply("Note has not been added.")
         else:
             title = cleaned_data["title"]
@@ -56,7 +60,7 @@ class AddNote(Form):
 
 class ConfirmDeleteField(CharField):
     def get_prompt(self, update: Update, cleaned_data: dict, form: Form):
-        note = Note.objects.get(id=cleaned_data['note_id'])
+        note = Note.objects.get(id=cleaned_data["note_id"])
         prompt = f"""Delete note?
         {note.title}
         {note.text}
@@ -81,31 +85,38 @@ class IdToDeleteField(IntegerField):
 
 
 class DeleteNoteForm(Form):
-    note_id = IdToDeleteField(prompt="Input note ID", min_value=0, )
-    confirm = ConfirmDeleteField(inline_keyboard=[
-        [InlineKeyboardButton("Yes", callback_data="yes"),
-         InlineKeyboardButton("No", callback_data="cancel")]])
+    note_id = IdToDeleteField(
+        prompt="Input note ID",
+        min_value=0,
+    )
+    confirm = ConfirmDeleteField(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton("Yes", callback_data="yes"),
+                InlineKeyboardButton("No", callback_data="cancel"),
+            ]
+        ]
+    )
 
     def on_complete(self, update, cleaned_data):
         telegram_object = update.telegram_object
         chat = telegram_object.get_chat
-        if cleaned_data['confirm'] == 'cancel':
+        if cleaned_data["confirm"] == "cancel":
             chat.reply("Note has not been deleted.")
         else:
-            Note.objects.get(id=cleaned_data['note_id']).delete()
+            Note.objects.get(id=cleaned_data["note_id"]).delete()
             chat.reply("Success! Note was deleted.")
 
 
-#### Notes
-
 @dataclass
 class NotesField(Field):
-
     def __post_init__(self):
         self.name = "notes"
         self.inline_keyboard = [
-            [InlineKeyboardButton("<", callback_data="previous"),
-             InlineKeyboardButton(">", callback_data="next")]
+            [
+                InlineKeyboardButton("<", callback_data="previous"),
+                InlineKeyboardButton(">", callback_data="next"),
+            ]
         ]
 
     def get_prompt(self, update: Update, cleaned_data: dict, form: NotesForm):
@@ -136,7 +147,7 @@ Text: {note.text}
 
     @staticmethod
     def _get_note_index(notes, note_id):
-        return list(notes.values_list('id', flat=True)).index(note_id)
+        return list(notes.values_list("id", flat=True)).index(note_id)
 
 
 @dataclass
@@ -144,8 +155,7 @@ class NotesForm(Form):
     def get_root_field(self) -> Field:
         notes_field = NotesField()
         notes_field.add_next(
-            notes_field,
-            lambda value, update, data: value in ["previous", "next"]
+            notes_field, lambda value, update, data: value in ["previous", "next"]
         )
         return notes_field
 

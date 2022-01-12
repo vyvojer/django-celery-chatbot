@@ -1,7 +1,7 @@
 # *****************************************************************************
 #  MIT License
 #
-#  Copyright (c) 2020 Alexey Londkevich <londkevich@gmail.com>
+#  Copyright (c) 2022 Alexey Londkevich <londkevich@gmail.com>
 #
 #  Permission is hereby granted, free of charge, to any person obtaining a copy
 #  of this software and associated documentation files (the "Software"),
@@ -21,16 +21,53 @@
 #  ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR
 #  THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 # *****************************************************************************
+from collections.abc import MutableMapping
 
-from celery import Celery
-from django_chatbot.conf import settings
+from django.conf import settings as user_settings
 
-app = Celery('django_chatbot',
-             broker=settings.DJANGO_CHATBOT['BROKER_URL'],
-             include='django_chatbot.tasks')
 
-# Using a string here means the worker doesn't have to serialize
-# the configuration object to child processes.
-# - namespace='CELERY' means all celery-related configuration keys
-#   should have a `CELERY_` prefix.
-app.config_from_object('django.conf:settings', namespace='CELERY')
+class ChatbotSettingsError(Exception):
+    pass
+
+
+DEFAULTS = {
+    "DEFAULT_TEST_CLIENT_BOT_NAME": None,
+    "BROKER_URL": getattr(user_settings, "CELERY_BROKER_URL", None),
+    "BOTS": [],
+    "LOAD_HANDLERS_CACHE_SIZE": None,
+}
+
+
+class DjangoChatbotSettings(MutableMapping):
+    def __getitem__(self, key):
+        if key in user_settings.DJANGO_CHATBOT:
+            return user_settings.DJANGO_CHATBOT[key]
+        elif key in DEFAULTS:
+            return DEFAULTS[key]
+        else:
+            raise ChatbotSettingsError(f"Chatbot setting '{key}' not found.")
+
+    def __setitem__(self, key, value):
+        pass
+
+    def __delitem__(self, key):
+        pass
+
+    def __iter__(self):
+        pass
+
+    def __len__(self):
+        pass
+
+
+class Settings:
+    @property
+    def DJANGO_CHATBOT(self):
+        try:
+            getattr(user_settings, "DJANGO_CHATBOT")
+        except AttributeError:
+            raise ChatbotSettingsError("DJANGO_CHATBOT settings not found")
+        return DjangoChatbotSettings()
+
+
+settings = Settings()
