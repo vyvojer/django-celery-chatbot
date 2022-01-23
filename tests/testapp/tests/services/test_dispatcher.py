@@ -34,9 +34,6 @@ class LoadBotHandlersTestCase(TestCase):
 
 
 class LoadHandlersTestCase(TestCase):
-    def setUp(self) -> None:
-        load_handlers.cache_clear()
-
     @patch("django_chatbot.services.dispatcher._load_bot_handlers")
     def test_load_handlers(self, mocked_load_bot_handlers: Mock):
         Bot.objects.create(

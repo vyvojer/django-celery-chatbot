@@ -22,7 +22,7 @@
 #  THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 # *****************************************************************************
 
-from django.conf import settings
+from django_chatbot.conf import settings
 from django.core.management import BaseCommand
 
 from django_chatbot.models import Bot

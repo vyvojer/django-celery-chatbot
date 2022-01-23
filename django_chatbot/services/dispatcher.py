@@ -26,19 +26,15 @@
 
 import importlib
 import logging
-from functools import lru_cache
 from typing import Dict, Iterable, List
 
-from django.conf import settings
-
-from django_chatbot.models import Bot, Form, Update
 from django_chatbot.handlers import Handler
+from django_chatbot.models import Bot, Form, Update
 from django_chatbot.telegram.types import Update as TelegramUpdate
 
 log = logging.getLogger(__name__)
 
 
-@lru_cache(maxsize=settings.DJANGO_CHATBOT.get('LOAD_HANDLERS_CACHE_SIZE'))
 def load_handlers() -> Dict[str, List[Handler]]:
     """Load registered handlers for all bots
 
@@ -107,16 +103,14 @@ class Dispatcher:
         )
         if form_keeper := Form.objects.get_form(update):
             if not self._check_handlers(
-                update=update,
-                handlers=[h for h in self.handlers if h.suppress_form]
+                update=update, handlers=[h for h in self.handlers if h.suppress_form]
             ):
                 form_keeper.form.update(update=update)
         else:
             self._check_handlers(update, self.handlers)
 
     @staticmethod
-    def _check_handlers(update: Update,
-                        handlers: Iterable[Handler]) -> bool:
+    def _check_handlers(update: Update, handlers: Iterable[Handler]) -> bool:
         """Check if one of the handlers match the update
 
         Args:

@@ -2,7 +2,8 @@ version: '3'
 
 services:
   postgres:
-    image: postgres:12.0-alpine
+    image: postgres:13.4-alpine
+    container_name: django_chatbot_postgres
     volumes:
       - postgres_data:/var/lib/postgresql/data/
     environment:
@@ -13,7 +14,8 @@ services:
       - "5432:5432"
 
   redis:
-    image: redis:3.2-alpine
+    image: redis:6.2-alpine
+    container_name: django_chatbot_redis
     ports:
       - "6379:6379"
 

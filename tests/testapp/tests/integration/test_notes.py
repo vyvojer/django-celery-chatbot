@@ -46,18 +46,31 @@
 #  the Software is furnished to do so, subject to the following conditions:
 #
 #
-from django_chatbot.tests import TestCase, MockUser
-from django_chatbot.models import Bot
+from django_chatbot.tests import TestCase
+from testapp.models import Note
 
 
 class CommandsTestCase(TestCase):
-    def setUp(self) -> None:
-        super().setUp()
-        self.bot = Bot.objects.create(
-            name='bot', token='token',
-            root_handlerconf='testapp.handlers'
-        )
-        self.user = MockUser(bot=self.bot)
+    bot_name = "notes"
 
-    def test_add_notes(self):
-        self.user.send_message('/count')
+    def setUp(self) -> None:
+        self.note_1 = Note.objects.create(
+            user=self.user.user, title="Title 1", text="Text 1"
+        )
+        self.note_2 = Note.objects.create(
+            user=self.user.user, title="Title 2", text="Text 2"
+        )
+        self.note_1 = Note.objects.create(
+            user=self.user.user, title="Title 3", text="Text 3"
+        )
+
+    def test_iterating_notes(self):
+        response = self.client.send_message("/notes")
+        self.assertContains(response, "Title 1")
+        self.assertContains(response, "Text 1")
+        self.assertContains(response, "Note 1 of 3")
+
+        response = self.client.send_callback_query(data="next")
+        self.assertContains(response, "Title 2")
+        self.assertContains(response, "Text 2")
+        self.assertContains(response, "Note 2 of 3")
