@@ -25,16 +25,12 @@ from unittest.mock import Mock, patch
 
 from django.test import TestCase
 from django.utils import timezone
+from factories.factories import BotFactory, ChatFactory, UpdateFactory
 
 from django_chatbot.models import Bot, CallbackQuery, Chat, Message, Update, User
 from django_chatbot.telegram import types
-from django_chatbot.tests.tests import (
-    ClientResponse,
-    ClientUser,
-    START_USER_ID,
-    TestCase as ChatbotTestCase,
-)
-from factories.factories import BotFactory, ChatFactory, UpdateFactory
+from django_chatbot.tests.tests import START_USER_ID, ClientResponse, ClientUser
+from django_chatbot.tests.tests import TestCase as ChatbotTestCase
 
 
 @patch("django_chatbot.tests.tests.Dispatcher")

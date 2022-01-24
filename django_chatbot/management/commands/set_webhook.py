@@ -25,7 +25,7 @@
 from django.core.management import BaseCommand
 
 from django_chatbot.models import Bot
-from telegram.api import TelegramError
+from django_chatbot.telegram.api import TelegramError
 
 
 class Command(BaseCommand):

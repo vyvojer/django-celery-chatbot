@@ -23,6 +23,7 @@
 # *****************************************************************************
 
 from django.db import models
+
 from django_chatbot.models import User as TelegramUser
 
 

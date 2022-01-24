@@ -11,7 +11,6 @@ https://docs.djangoproject.com/en/2.2/ref/settings/
 """
 
 import os
-from decouple import config
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -20,7 +19,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # See https://docs.djangoproject.com/en/2.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = config("SECRET_KEY")
+SECRET_KEY = os.environ["SECRET_KEY"]
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -77,11 +76,11 @@ WSGI_APPLICATION = "testproject.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": config("DB_NAME", default="chatbot"),
-        "USER": config("DB_USER", default="chatbot"),
-        "PASSWORD": config("DB_PASSWORD", default="chatbot"),
-        "HOST": config("DB_HOST", default="localhost"),
-        "PORT": config("DB_PORT", default=5432, cast=int),
+        "NAME": os.environ.get("POSTGRES_DB", "chatbot"),
+        "USER": os.environ.get("POSTGRES_USER", "chatbot"),
+        "PASSWORD": os.environ.get("POSTGRES_PASSWORD", "chatbot"),
+        "HOST": os.environ.get("POSTGRES_HOST", "postgres"),
+        "PORT": os.environ.get("POSTGRES_PORT", 5432),
     }
 }
 
@@ -121,70 +120,101 @@ USE_TZ = True
 
 # celery
 
-CELE_BROKER_URL = config("CELERY_BROKER_URL", default="redis://localhost:6379/0")
+REDIS_HOST = os.environ["REDIS_HOST"]
+REDIS_PORT = os.environ["REDIS_PORT"]
+CELERY_BROKER_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}/0"
 
 
 # django-chatbot
 
 DJANGO_CHATBOT = {
-    "WEBHOOK_DOMAIN": config("CHATBOT_WEBHOOK_DOMAIN", default="https//xxx.ngrok.io"),
+    "WEBHOOK_DOMAIN": os.environ["CHATBOT_WEBHOOK_DOMAIN"],
     "BOTS": [
         {
-            "NAME": config("NOTES_BOT_NAME", default="@BotnameBot"),
-            "TOKEN": config("NOTES_BOT_TOKEN", default="xxxx:bot-token"),
+            "NAME": os.environ["NOTES_BOT_NAME"],
+            "TOKEN": os.environ["NOTES_BOT_TOKEN"],
             "ROOT_HANDLERCONF": "testapp.handlers",
             "TEST_NAME": "notes",
         },
         {
-            "NAME": config("DUMMY_BOT_NAME", default="@BotnameBot"),
-            "TOKEN": config("DUMMY_BOT_TOKEN", default="xxxx:bot-token"),
+            "NAME": os.environ["DUMMY_BOT_NAME"],
+            "TOKEN": os.environ["DUMMY_BOT_TOKEN"],
             "ROOT_HANDLERCONF": "dummybot.handlers",
+            "TEST_NAME": "dummy",
         },
     ],
 }
 
 # Logging
-USE_PAPERTRAIL = config("USE_PAPERTRAIL", default=False, cast=bool)
+LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")
 
-if USE_PAPERTRAIL:
-    PAPERTRAIL_ADDRESS = config("PAPERTRAIL_ADDRESS")
-    PAPERTRAIL_PORT = config("PAPERTRAIL_PORT", cast=int)
-    LOGGING = {
-        "version": 1,
-        "disable_existing_loggers": False,
-        "formatters": {
-            "verbose": {
-                "format": "{asctime} [{levelname}] [{filename}:{lineno} - {funcName}() ] {name}: {message}",  # noqa
-                "style": "{",
-            },
-            "simple": {
-                "format": "{levelname} {message}",
-                "style": "{",
-            },
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": True,
+    "formatters": {
+        "json": {
+            "class": "pythonjsonlogger.jsonlogger.JsonFormatter",
+            "format": "%(levelname)s %(asctime)s %(name)s %(filename)s %(lineno)s %(funcName)s %(message)s",  # noqa
         },
-        "handlers": {
-            "SysLog": {
-                "level": "DEBUG",
-                "class": "logging.handlers.SysLogHandler",
-                "formatter": "verbose",
-                "address": (PAPERTRAIL_ADDRESS, PAPERTRAIL_PORT),
-            },
+    },
+    "handlers": {
+        "console": {
+            "level": "DEBUG",
+            "class": "logging.StreamHandler",
+            "formatter": "json",
         },
-        "loggers": {
-            "testapp": {
-                "handlers": ["SysLog"],
-                "level": "DEBUG",
-                "propagate": True,
-            },
-            "django_chatbot": {
-                "handlers": ["SysLog"],
-                "level": "DEBUG",
-                "propagate": True,
-            },
+    },
+    "loggers": {
+        "django": {
+            "handlers": ["console"],
+            "level": "INFO",
         },
-    }
+        "django.request": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
+        "django.db.backends": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
+        "common": {
+            "handlers": ["console"],
+            "level": LOG_LEVEL,
+        },
+        "ipharm": {
+            "handlers": ["console"],
+            "level": LOG_LEVEL,
+        },
+        "references": {
+            "handlers": ["console"],
+            "level": LOG_LEVEL,
+        },
+        "updates": {
+            "handlers": ["console"],
+            "level": LOG_LEVEL,
+        },
+        "users": {
+            "handlers": ["console"],
+            "level": LOG_LEVEL,
+        },
+    },
+}
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/2.2/howto/static-files/
 
 STATIC_URL = "/static/"
+
+if os.environ.get("SENTRY_DSN"):
+    import sentry_sdk
+    from sentry_sdk.integrations.celery import CeleryIntegration
+    from sentry_sdk.integrations.django import DjangoIntegration
+
+    SENTRY_DSN = os.environ["SENTRY_DSN"]
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        integrations=[DjangoIntegration(), CeleryIntegration()],
+        environment=os.environ.get("SENTRY_ENVIRONMENT", "development"),
+    )

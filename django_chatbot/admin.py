@@ -40,12 +40,7 @@ class BotAdmin(admin.ModelAdmin):
 
 @admin.register(Chat)
 class ChatAdmin(admin.ModelAdmin):
-    list_display = [
-        "bot",
-        "chat_id",
-        "type",
-        "username"
-    ]
+    list_display = ["bot", "chat_id", "type", "username"]
 
 
 @admin.register(Message)
@@ -61,7 +56,7 @@ class MessageAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         query_set = super().get_queryset(request)
-        query_set = query_set.annotate(bot_name=F('chat__bot__name'))
+        query_set = query_set.annotate(bot_name=F("chat__bot__name"))
         return query_set
 
     def trancated_text(self, obj):
@@ -70,14 +65,14 @@ class MessageAdmin(admin.ModelAdmin):
     def bot_name(self, obj):
         return obj.bot_name
 
-    bot_name.admin_order_field = 'bot_name'
+    bot_name.admin_order_field = "bot_name"
 
 
 @admin.register(CallbackQuery)
 class CallbackQueryAdmin(admin.ModelAdmin):
     list_display = [
-       "callback_query_id",
-       "from_user",
+        "callback_query_id",
+        "from_user",
     ]
 
 

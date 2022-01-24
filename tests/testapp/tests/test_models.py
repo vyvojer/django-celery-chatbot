@@ -16,22 +16,22 @@ from django_chatbot.models import (
     _update_defaults,
 )
 from django_chatbot.telegram.api import Api, TelegramError
+from django_chatbot.telegram.types import Animation
+from django_chatbot.telegram.types import CallbackQuery as TelegramCallbackQuery
+from django_chatbot.telegram.types import Chat as TelegramChat
 from django_chatbot.telegram.types import (
-    Animation,
-    CallbackQuery as TelegramCallbackQuery,
-    Chat as TelegramChat,
     ChatLocation,
     ChatPermissions,
     ChatPhoto,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     Location,
-    Message as TelegramMessage,
-    MessageEntity,
-    Update as TelegramUpdate,
-    User as TelegramUser,
-    WebhookInfo,
 )
+from django_chatbot.telegram.types import Message as TelegramMessage
+from django_chatbot.telegram.types import MessageEntity
+from django_chatbot.telegram.types import Update as TelegramUpdate
+from django_chatbot.telegram.types import User as TelegramUser
+from django_chatbot.telegram.types import WebhookInfo
 
 
 class BotTestCase(TestCase):

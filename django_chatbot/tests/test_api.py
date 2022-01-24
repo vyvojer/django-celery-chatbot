@@ -31,7 +31,6 @@ from django_chatbot.telegram.api import Api
 
 
 class TestApi(Api):
-
     def send_message(
         self,
         chat_id: int,

@@ -1,3 +1,6 @@
 -r requirements.txt
+black==21.12b0
 factory-boy==3.2.1
 flake8==3.8.4
+isort==5.10.1
+sentry-sdk==1.4.3

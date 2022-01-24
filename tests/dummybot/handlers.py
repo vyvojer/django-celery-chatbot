@@ -22,6 +22,8 @@
 #  THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 # *****************************************************************************
 
+from dummybot import callbacks
+
 # *****************************************************************************
 #  MIT License
 #
@@ -35,7 +37,6 @@
 #
 #
 from django_chatbot.handlers import CommandHandler, DefaultHandler
-from dummybot import callbacks
 
 handlers = [
     CommandHandler(

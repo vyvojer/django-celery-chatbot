@@ -1,0 +1,134 @@
+name: Push workflow
+
+on:
+  push:
+    branches-ignore:
+      - master
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Cache env files
+        uses: actions/cache@v2
+        with:
+          path: ./.envs/
+          key: envs-${{ github.sha }}
+      - name:  Create env files
+        run: |
+          mkdir -p .envs
+          touch .envs/.app
+          echo "SECRET_KEY=${{ secrets.SECRET_KEY }}" >>  .envs/.app
+          echo "CHATBOT_WEBHOOK_DOMAIN=${{ secrets.CHATBOT_WEBHOOK_DOMAIN }}" >>  .envs/.app
+          echo "NOTES_BOT_NAME=${{ secrets.NOTES_BOT_NAME }}" >>  .envs/.app
+          echo "NOTES_BOT_TOKEN=${{ secrets.NOTES_BOT_TOKEN }}" >>  .envs/.app
+          echo "DUMMY_BOT_NAME=${{ secrets.DUMMY_BOT_NAME }}" >>  .envs/.app
+          echo "DUMMY_BOT_TOKEN=${{ secrets.DUMMY_BOT_TOKEN }}" >>  .envs/.app
+          touch .envs/.postgres
+          echo POSTGRES_HOST=postgres >>  .envs/.postgres
+          echo POSTGRES_PORT=5432 >>  .envs/.postgres
+          echo POSTGRES_DB=chatbot >>  .envs/.postgres
+          echo POSTGRES_USER=chatbot >>  .envs/.postgres
+          echo "POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}" >>  .envs/.postgres
+          touch .envs/.redis
+          echo REDIS_HOST=redis >>  .envs/.redis
+          echo REDIS_PORT=6379 >>  .envs/.redis
+          touch .envs/.flower
+          echo CELERY_BROKER_URL=redis://redis:6379/0 >>  .envs/.flower
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+      - name: Build image
+        uses: docker/bake-action@master
+        with:
+          files: docker-compose.yml
+          push: false
+          set: |
+            *.cache-from=type=local,src=/tmp/.buildx-cache
+            *.cache-to=type=local,mode=max,dest=/tmp/.buildx-cache-new
+      - name: Move cache
+        run: |
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+
+  tests:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Cache env files
+        uses: actions/cache@v2
+        with:
+          path: ./.envs/
+          key: envs-${{ github.sha }}
+      - name: Build image
+        uses: docker/bake-action@master
+        with:
+          files: docker-compose.yml
+          push: false
+          set: |
+            *.cache-from=type=local,src=/tmp/.buildx-cache
+      - name: Build the stack
+        run: docker-compose -f docker-compose.yml up -d
+      - name: Test
+        run: docker-compose -f docker-compose.yml run --rm -T app ./scripts/tests.sh
+
+  isort:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Cache env files
+        uses: actions/cache@v2
+        with:
+          path: ./.envs/
+          key: envs-${{ github.sha }}
+      - name: Build image
+        uses: docker/bake-action@master
+        with:
+          files: docker-compose.yml
+          push: false
+          set: |
+            *.cache-from=type=local,src=/tmp/.buildx-cache
+      - name: Isort
+        run: docker-compose -f docker-compose.yml run --rm -T app isort -c .
+
+  black:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Cache env files
+        uses: actions/cache@v2
+        with:
+          path: ./.envs/
+          key: envs-${{ github.sha }}
+      - name: Build image
+        uses: docker/bake-action@master
+        with:
+          files: docker-compose.yml
+          push: false
+          set: |
+            *.cache-from=type=local,src=/tmp/.buildx-cache
+      - name: Black
+        run: docker-compose -f docker-compose.yml run --rm -T app black --check .
+
+  flake8:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Cache env files
+        uses: actions/cache@v2
+        with:
+          path: ./.envs/
+          key: envs-${{ github.sha }}
+      - name: Build image
+        uses: docker/bake-action@master
+        with:
+          files: docker-compose.yml
+          push: false
+          set: |
+            *.cache-from=type=local,src=/tmp/.buildx-cache
+      - name: Black
+        run: docker-compose -f docker-compose.yml run --rm -T app flake8 .

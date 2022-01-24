@@ -90,7 +90,7 @@ from .types import (
     Update,
     User,
     UserProfilePhotos,
-    WebhookInfo
+    WebhookInfo,
 )
 
 log = logging.getLogger(__name__)
@@ -115,12 +115,14 @@ class TelegramError(Exception):
         api_code: The error code returned by Telegram.
     """
 
-    def __init__(self,
-                 reason: str,
-                 url: str = None,
-                 status_code: int = None,
-                 response: requests.Response = None,
-                 api_code=None):
+    def __init__(
+        self,
+        reason: str,
+        url: str = None,
+        status_code: int = None,
+        response: requests.Response = None,
+        api_code=None,
+    ):
         self.reason = reason
         self.url = url
         self.status_code = status_code
@@ -133,11 +135,11 @@ class TelegramError(Exception):
 
     def to_dict(self) -> dict:
         return {
-            'reason': self.reason,
-            'url': self.url,
-            'status_code': self.status_code,
-            'response': self.response,
-            'api_code': self.api_code,
+            "reason": self.reason,
+            "url": self.url,
+            "status_code": self.status_code,
+            "response": self.response,
+            "api_code": self.api_code,
         }
 
 
@@ -155,6 +157,7 @@ class _Binder:
         telegram_type: The 'TelegramType' to which the API response should be
             cast.
     """
+
     token: str
     method_name: str
     params: dict = None
@@ -177,20 +180,24 @@ class _Binder:
             response = requests.post(url=self.url, data=params)
             log.debug(
                 "Telegram params=%s response: url=%s, status_code=%s, json=%s",
-                params, response.url, response.status_code, response.json()
+                params,
+                response.url,
+                response.status_code,
+                response.json(),
             )
         else:
             response = requests.get(url=self.url)
             log.debug(
                 "Telegram request response: url=%s, status_code=%s, json=%s",
-                response.url, response.status_code, response.json()
+                response.url,
+                response.status_code,
+                response.json(),
             )
         result = self._parse_response(response, self.telegram_type)
         return result
 
     @staticmethod
-    def _parse_response(response: requests.Response,
-                        telegram_type: Type[TelegramType]):
+    def _parse_response(response: requests.Response, telegram_type: Type[TelegramType]):
         """Parse response
 
         Args:
@@ -214,12 +221,11 @@ class _Binder:
                 url=response.url,
                 status_code=response.status_code,
                 response=response_json,
-                api_code=response_json["error_code"]
+                api_code=response_json["error_code"],
             )
 
     @staticmethod
-    def _get_result(response_result: dict,
-                    telegram_type: Type[TelegramType]):
+    def _get_result(response_result: dict, telegram_type: Type[TelegramType]):
         """Extract result from response dictionary
 
         Args:
@@ -233,9 +239,7 @@ class _Binder:
         """
         if response_result["ok"]:
             result = response_result["result"]
-            if telegram_type is None or not issubclass(
-                    telegram_type, TelegramType
-            ):
+            if telegram_type is None or not issubclass(telegram_type, TelegramType):
                 return result
             else:
                 return telegram_type.from_dict(source=result)
@@ -255,10 +259,12 @@ class Api:
     def __init__(self, token: str):
         self.token = token
 
-    def _bind(self,
-              method_name: str,
-              params: dict = None,
-              telegram_type: Type[TelegramType] = None):
+    def _bind(
+        self,
+        method_name: str,
+        params: dict = None,
+        telegram_type: Type[TelegramType] = None,
+    ):
         """Make request to API and return casted response.
 
         Args:
@@ -274,17 +280,20 @@ class Api:
             TelegramError: If there was telegram or requests error.
         """
         binder = _Binder(
-            token=self.token, method_name=method_name,
-            params=params, telegram_type=telegram_type
+            token=self.token,
+            method_name=method_name,
+            params=params,
+            telegram_type=telegram_type,
         )
         return binder.bind()
 
-    def get_updates(self,
-                    offset: int = None,
-                    limit: int = None,
-                    timeout: int = None,
-                    allowed_updates: List[str] = None
-                    ) -> Update:
+    def get_updates(
+        self,
+        offset: int = None,
+        limit: int = None,
+        timeout: int = None,
+        allowed_updates: List[str] = None,
+    ) -> Update:
         """
         Use this method to receive incoming updates using long polling (wiki).
         An Array of Update objects is returned.
@@ -322,25 +331,22 @@ class Api:
         """
 
         params = {
-            'offset': offset,
-            'limit': limit,
-            'timeout': timeout,
-            'allowed_updates': allowed_updates,
+            "offset": offset,
+            "limit": limit,
+            "timeout": timeout,
+            "allowed_updates": allowed_updates,
         }
-        return self._bind(
-            method_name="getUpdates",
-            params=params,
-            telegram_type=Update
-        )
+        return self._bind(method_name="getUpdates", params=params, telegram_type=Update)
 
-    def set_webhook(self,
-                    url: str,
-                    certificate: InputFile = None,
-                    ip_address: str = None,
-                    max_connections: int = None,
-                    allowed_updates: List[str] = None,
-                    drop_pending_updates: bool = None
-                    ) -> bool:
+    def set_webhook(
+        self,
+        url: str,
+        certificate: InputFile = None,
+        ip_address: str = None,
+        max_connections: int = None,
+        allowed_updates: List[str] = None,
+        drop_pending_updates: bool = None,
+    ) -> bool:
         """
         Use this method to specify a url and receive incoming updates via an
         outgoing webhook. Whenever there is an update for the bot, we will send
@@ -386,22 +392,16 @@ class Api:
             certificate = certificate.to_dict()
 
         params = {
-            'url': url,
-            'certificate': certificate,
-            'ip_address': ip_address,
-            'max_connections': max_connections,
-            'allowed_updates': allowed_updates,
-            'drop_pending_updates': drop_pending_updates,
+            "url": url,
+            "certificate": certificate,
+            "ip_address": ip_address,
+            "max_connections": max_connections,
+            "allowed_updates": allowed_updates,
+            "drop_pending_updates": drop_pending_updates,
         }
-        return self._bind(
-            method_name="setWebhook",
-            params=params,
-            telegram_type=bool
-        )
+        return self._bind(method_name="setWebhook", params=params, telegram_type=bool)
 
-    def delete_webhook(self,
-                       drop_pending_updates: bool = None
-                       ) -> bool:
+    def delete_webhook(self, drop_pending_updates: bool = None) -> bool:
         """
         Use this method to remove webhook integration if you decide to switch
         back to getUpdates. Returns True on success.
@@ -416,16 +416,15 @@ class Api:
         """
 
         params = {
-            'drop_pending_updates': drop_pending_updates,
+            "drop_pending_updates": drop_pending_updates,
         }
         return self._bind(
-            method_name="deleteWebhook",
-            params=params,
-            telegram_type=bool
+            method_name="deleteWebhook", params=params, telegram_type=bool
         )
 
-    def get_webhook_info(self,
-                         ) -> WebhookInfo:
+    def get_webhook_info(
+        self,
+    ) -> WebhookInfo:
         """
         Use this method to get current webhook status. Requires no parameters.
         On success, returns a WebhookInfo object. If the bot is using
@@ -437,13 +436,11 @@ class Api:
         Returns:
             WebhookInfo
         """
-        return self._bind(
-            method_name="getWebhookInfo",
-            telegram_type=WebhookInfo
-        )
+        return self._bind(method_name="getWebhookInfo", telegram_type=WebhookInfo)
 
-    def get_me(self,
-               ) -> User:
+    def get_me(
+        self,
+    ) -> User:
         """
         A simple method for testing your bot's auth token. Requires no
         parameters. Returns basic information about the bot in form of a User
@@ -455,13 +452,11 @@ class Api:
         Returns:
             User
         """
-        return self._bind(
-            method_name="getMe",
-            telegram_type=User
-        )
+        return self._bind(method_name="getMe", telegram_type=User)
 
-    def log_out(self,
-                ) -> bool:
+    def log_out(
+        self,
+    ) -> bool:
         """
         Use this method to log out from the cloud Bot API server before
         launching the bot locally. You must log out the bot before running it
@@ -476,13 +471,11 @@ class Api:
         Returns:
             bool
         """
-        return self._bind(
-            method_name="logOut",
-            telegram_type=bool
-        )
+        return self._bind(method_name="logOut", telegram_type=bool)
 
-    def close(self,
-              ) -> bool:
+    def close(
+        self,
+    ) -> bool:
         """
         Use this method to close the bot instance before moving it from one
         local server to another. You need to delete the webhook before calling
@@ -496,25 +489,22 @@ class Api:
         Returns:
             bool
         """
-        return self._bind(
-            method_name="close",
-            telegram_type=bool
-        )
+        return self._bind(method_name="close", telegram_type=bool)
 
-    def send_message(self,
-                     chat_id: Union[int, str],
-                     text: str,
-                     parse_mode: str = None,
-                     entities: List[MessageEntity] = None,
-                     disable_web_page_preview: bool = None,
-                     disable_notification: bool = None,
-                     reply_to_message_id: int = None,
-                     allow_sending_without_reply: bool = None,
-                     reply_markup: Union[InlineKeyboardMarkup,
-                                         ReplyKeyboardMarkup,
-                                         ReplyKeyboardRemove,
-                                         ForceReply] = None
-                     ) -> Message:
+    def send_message(
+        self,
+        chat_id: Union[int, str],
+        text: str,
+        parse_mode: str = None,
+        entities: List[MessageEntity] = None,
+        disable_web_page_preview: bool = None,
+        disable_notification: bool = None,
+        reply_to_message_id: int = None,
+        allow_sending_without_reply: bool = None,
+        reply_markup: Union[
+            InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove, ForceReply
+        ] = None,
+    ) -> Message:
         """
         Use this method to send text messages. On success, the sent Message is
         returned.
@@ -552,28 +542,27 @@ class Api:
             reply_markup = json.dumps(reply_markup.to_dict())
 
         params = {
-            'chat_id': chat_id,
-            'text': text,
-            'parse_mode': parse_mode,
-            'entities': entities,
-            'disable_web_page_preview': disable_web_page_preview,
-            'disable_notification': disable_notification,
-            'reply_to_message_id': reply_to_message_id,
-            'allow_sending_without_reply': allow_sending_without_reply,
-            'reply_markup': reply_markup,
+            "chat_id": chat_id,
+            "text": text,
+            "parse_mode": parse_mode,
+            "entities": entities,
+            "disable_web_page_preview": disable_web_page_preview,
+            "disable_notification": disable_notification,
+            "reply_to_message_id": reply_to_message_id,
+            "allow_sending_without_reply": allow_sending_without_reply,
+            "reply_markup": reply_markup,
         }
         return self._bind(
-            method_name="sendMessage",
-            params=params,
-            telegram_type=Message
+            method_name="sendMessage", params=params, telegram_type=Message
         )
 
-    def forward_message(self,
-                        chat_id: Union[int, str],
-                        from_chat_id: Union[int, str],
-                        message_id: int,
-                        disable_notification: bool = None
-                        ) -> Message:
+    def forward_message(
+        self,
+        chat_id: Union[int, str],
+        from_chat_id: Union[int, str],
+        message_id: int,
+        disable_notification: bool = None,
+    ) -> Message:
         """
         Use this method to forward messages of any kind. On success, the sent
         Message is returned.
@@ -596,32 +585,30 @@ class Api:
         """
 
         params = {
-            'chat_id': chat_id,
-            'from_chat_id': from_chat_id,
-            'message_id': message_id,
-            'disable_notification': disable_notification,
+            "chat_id": chat_id,
+            "from_chat_id": from_chat_id,
+            "message_id": message_id,
+            "disable_notification": disable_notification,
         }
         return self._bind(
-            method_name="forwardMessage",
-            params=params,
-            telegram_type=Message
+            method_name="forwardMessage", params=params, telegram_type=Message
         )
 
-    def copy_message(self,
-                     chat_id: Union[int, str],
-                     from_chat_id: Union[int, str],
-                     message_id: int,
-                     caption: str = None,
-                     parse_mode: str = None,
-                     caption_entities: List[MessageEntity] = None,
-                     disable_notification: bool = None,
-                     reply_to_message_id: int = None,
-                     allow_sending_without_reply: bool = None,
-                     reply_markup: Union[InlineKeyboardMarkup,
-                                         ReplyKeyboardMarkup,
-                                         ReplyKeyboardRemove,
-                                         ForceReply] = None
-                     ) -> MessageId:
+    def copy_message(
+        self,
+        chat_id: Union[int, str],
+        from_chat_id: Union[int, str],
+        message_id: int,
+        caption: str = None,
+        parse_mode: str = None,
+        caption_entities: List[MessageEntity] = None,
+        disable_notification: bool = None,
+        reply_to_message_id: int = None,
+        allow_sending_without_reply: bool = None,
+        reply_markup: Union[
+            InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove, ForceReply
+        ] = None,
+    ) -> MessageId:
         """
         Use this method to copy messages of any kind. The method is analogous
         to the method forwardMessage, but the copied message doesn't have a
@@ -664,37 +651,35 @@ class Api:
             reply_markup = reply_markup.to_dict()
 
         params = {
-            'chat_id': chat_id,
-            'from_chat_id': from_chat_id,
-            'message_id': message_id,
-            'caption': caption,
-            'parse_mode': parse_mode,
-            'caption_entities': caption_entities,
-            'disable_notification': disable_notification,
-            'reply_to_message_id': reply_to_message_id,
-            'allow_sending_without_reply': allow_sending_without_reply,
-            'reply_markup': reply_markup,
+            "chat_id": chat_id,
+            "from_chat_id": from_chat_id,
+            "message_id": message_id,
+            "caption": caption,
+            "parse_mode": parse_mode,
+            "caption_entities": caption_entities,
+            "disable_notification": disable_notification,
+            "reply_to_message_id": reply_to_message_id,
+            "allow_sending_without_reply": allow_sending_without_reply,
+            "reply_markup": reply_markup,
         }
         return self._bind(
-            method_name="copyMessage",
-            params=params,
-            telegram_type=MessageId
+            method_name="copyMessage", params=params, telegram_type=MessageId
         )
 
-    def send_photo(self,
-                   chat_id: Union[int, str],
-                   photo: Union[InputFile, str],
-                   caption: str = None,
-                   parse_mode: str = None,
-                   caption_entities: List[MessageEntity] = None,
-                   disable_notification: bool = None,
-                   reply_to_message_id: int = None,
-                   allow_sending_without_reply: bool = None,
-                   reply_markup: Union[InlineKeyboardMarkup,
-                                       ReplyKeyboardMarkup,
-                                       ReplyKeyboardRemove,
-                                       ForceReply] = None
-                   ) -> Message:
+    def send_photo(
+        self,
+        chat_id: Union[int, str],
+        photo: Union[InputFile, str],
+        caption: str = None,
+        parse_mode: str = None,
+        caption_entities: List[MessageEntity] = None,
+        disable_notification: bool = None,
+        reply_to_message_id: int = None,
+        allow_sending_without_reply: bool = None,
+        reply_markup: Union[
+            InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove, ForceReply
+        ] = None,
+    ) -> Message:
         """
         Use this method to send photos. On success, the sent Message is
         returned.
@@ -731,7 +716,7 @@ class Api:
         Returns:
             Message
         """
-        if photo is not None and hasattr(photo, 'to_dict'):
+        if photo is not None and hasattr(photo, "to_dict"):
             photo = photo.to_dict()
         if caption_entities is not None:
             caption_entities = [c.to_dict() for c in caption_entities]
@@ -739,40 +724,36 @@ class Api:
             reply_markup = reply_markup.to_dict()
 
         params = {
-            'chat_id': chat_id,
-            'photo': photo,
-            'caption': caption,
-            'parse_mode': parse_mode,
-            'caption_entities': caption_entities,
-            'disable_notification': disable_notification,
-            'reply_to_message_id': reply_to_message_id,
-            'allow_sending_without_reply': allow_sending_without_reply,
-            'reply_markup': reply_markup,
+            "chat_id": chat_id,
+            "photo": photo,
+            "caption": caption,
+            "parse_mode": parse_mode,
+            "caption_entities": caption_entities,
+            "disable_notification": disable_notification,
+            "reply_to_message_id": reply_to_message_id,
+            "allow_sending_without_reply": allow_sending_without_reply,
+            "reply_markup": reply_markup,
         }
-        return self._bind(
-            method_name="sendPhoto",
-            params=params,
-            telegram_type=Message
-        )
+        return self._bind(method_name="sendPhoto", params=params, telegram_type=Message)
 
-    def send_audio(self,
-                   chat_id: Union[int, str],
-                   audio: Union[InputFile, str],
-                   caption: str = None,
-                   parse_mode: str = None,
-                   caption_entities: List[MessageEntity] = None,
-                   duration: int = None,
-                   performer: str = None,
-                   title: str = None,
-                   thumb: Union[InputFile, str] = None,
-                   disable_notification: bool = None,
-                   reply_to_message_id: int = None,
-                   allow_sending_without_reply: bool = None,
-                   reply_markup: Union[InlineKeyboardMarkup,
-                                       ReplyKeyboardMarkup,
-                                       ReplyKeyboardRemove,
-                                       ForceReply] = None
-                   ) -> Message:
+    def send_audio(
+        self,
+        chat_id: Union[int, str],
+        audio: Union[InputFile, str],
+        caption: str = None,
+        parse_mode: str = None,
+        caption_entities: List[MessageEntity] = None,
+        duration: int = None,
+        performer: str = None,
+        title: str = None,
+        thumb: Union[InputFile, str] = None,
+        disable_notification: bool = None,
+        reply_to_message_id: int = None,
+        allow_sending_without_reply: bool = None,
+        reply_markup: Union[
+            InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove, ForceReply
+        ] = None,
+    ) -> Message:
         """
         Use this method to send audio files, if you want Telegram clients to
         display them in the music player. Your audio must be in the .MP3 or
@@ -823,52 +804,48 @@ class Api:
         Returns:
             Message
         """
-        if audio is not None and hasattr(audio, 'to_dict'):
+        if audio is not None and hasattr(audio, "to_dict"):
             audio = audio.to_dict()
         if caption_entities is not None:
             caption_entities = [c.to_dict() for c in caption_entities]
-        if thumb is not None and hasattr(thumb, 'to_dict'):
+        if thumb is not None and hasattr(thumb, "to_dict"):
             thumb = thumb.to_dict()
         if reply_markup is not None:
             reply_markup = reply_markup.to_dict()
 
         params = {
-            'chat_id': chat_id,
-            'audio': audio,
-            'caption': caption,
-            'parse_mode': parse_mode,
-            'caption_entities': caption_entities,
-            'duration': duration,
-            'performer': performer,
-            'title': title,
-            'thumb': thumb,
-            'disable_notification': disable_notification,
-            'reply_to_message_id': reply_to_message_id,
-            'allow_sending_without_reply': allow_sending_without_reply,
-            'reply_markup': reply_markup,
+            "chat_id": chat_id,
+            "audio": audio,
+            "caption": caption,
+            "parse_mode": parse_mode,
+            "caption_entities": caption_entities,
+            "duration": duration,
+            "performer": performer,
+            "title": title,
+            "thumb": thumb,
+            "disable_notification": disable_notification,
+            "reply_to_message_id": reply_to_message_id,
+            "allow_sending_without_reply": allow_sending_without_reply,
+            "reply_markup": reply_markup,
         }
-        return self._bind(
-            method_name="sendAudio",
-            params=params,
-            telegram_type=Message
-        )
+        return self._bind(method_name="sendAudio", params=params, telegram_type=Message)
 
-    def send_document(self,
-                      chat_id: Union[int, str],
-                      document: Union[InputFile, str],
-                      thumb: Union[InputFile, str] = None,
-                      caption: str = None,
-                      parse_mode: str = None,
-                      caption_entities: List[MessageEntity] = None,
-                      disable_content_type_detection: bool = None,
-                      disable_notification: bool = None,
-                      reply_to_message_id: int = None,
-                      allow_sending_without_reply: bool = None,
-                      reply_markup: Union[InlineKeyboardMarkup,
-                                          ReplyKeyboardMarkup,
-                                          ReplyKeyboardRemove,
-                                          ForceReply] = None
-                      ) -> Message:
+    def send_document(
+        self,
+        chat_id: Union[int, str],
+        document: Union[InputFile, str],
+        thumb: Union[InputFile, str] = None,
+        caption: str = None,
+        parse_mode: str = None,
+        caption_entities: List[MessageEntity] = None,
+        disable_content_type_detection: bool = None,
+        disable_notification: bool = None,
+        reply_to_message_id: int = None,
+        allow_sending_without_reply: bool = None,
+        reply_markup: Union[
+            InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove, ForceReply
+        ] = None,
+    ) -> Message:
         """
         Use this method to send general files. On success, the sent Message is
         returned. Bots can currently send files of any type of up to 50 MB in
@@ -916,9 +893,9 @@ class Api:
         Returns:
             Message
         """
-        if document is not None and hasattr(document, 'to_dict'):
+        if document is not None and hasattr(document, "to_dict"):
             document = document.to_dict()
-        if thumb is not None and hasattr(thumb, 'to_dict'):
+        if thumb is not None and hasattr(thumb, "to_dict"):
             thumb = thumb.to_dict()
         if caption_entities is not None:
             caption_entities = [c.to_dict() for c in caption_entities]
@@ -926,43 +903,41 @@ class Api:
             reply_markup = reply_markup.to_dict()
 
         params = {
-            'chat_id': chat_id,
-            'document': document,
-            'thumb': thumb,
-            'caption': caption,
-            'parse_mode': parse_mode,
-            'caption_entities': caption_entities,
-            'disable_content_type_detection': disable_content_type_detection,
-            'disable_notification': disable_notification,
-            'reply_to_message_id': reply_to_message_id,
-            'allow_sending_without_reply': allow_sending_without_reply,
-            'reply_markup': reply_markup,
+            "chat_id": chat_id,
+            "document": document,
+            "thumb": thumb,
+            "caption": caption,
+            "parse_mode": parse_mode,
+            "caption_entities": caption_entities,
+            "disable_content_type_detection": disable_content_type_detection,
+            "disable_notification": disable_notification,
+            "reply_to_message_id": reply_to_message_id,
+            "allow_sending_without_reply": allow_sending_without_reply,
+            "reply_markup": reply_markup,
         }
         return self._bind(
-            method_name="sendDocument",
-            params=params,
-            telegram_type=Message
+            method_name="sendDocument", params=params, telegram_type=Message
         )
 
-    def send_video(self,
-                   chat_id: Union[int, str],
-                   video: Union[InputFile, str],
-                   duration: int = None,
-                   width: int = None,
-                   height: int = None,
-                   thumb: Union[InputFile, str] = None,
-                   caption: str = None,
-                   parse_mode: str = None,
-                   caption_entities: List[MessageEntity] = None,
-                   supports_streaming: bool = None,
-                   disable_notification: bool = None,
-                   reply_to_message_id: int = None,
-                   allow_sending_without_reply: bool = None,
-                   reply_markup: Union[InlineKeyboardMarkup,
-                                       ReplyKeyboardMarkup,
-                                       ReplyKeyboardRemove,
-                                       ForceReply] = None
-                   ) -> Message:
+    def send_video(
+        self,
+        chat_id: Union[int, str],
+        video: Union[InputFile, str],
+        duration: int = None,
+        width: int = None,
+        height: int = None,
+        thumb: Union[InputFile, str] = None,
+        caption: str = None,
+        parse_mode: str = None,
+        caption_entities: List[MessageEntity] = None,
+        supports_streaming: bool = None,
+        disable_notification: bool = None,
+        reply_to_message_id: int = None,
+        allow_sending_without_reply: bool = None,
+        reply_markup: Union[
+            InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove, ForceReply
+        ] = None,
+    ) -> Message:
         """
         Use this method to send video files, Telegram clients support mp4
         videos (other formats may be sent as Document). On success, the sent
@@ -1013,9 +988,9 @@ class Api:
         Returns:
             Message
         """
-        if video is not None and hasattr(video, 'to_dict'):
+        if video is not None and hasattr(video, "to_dict"):
             video = video.to_dict()
-        if thumb is not None and hasattr(thumb, 'to_dict'):
+        if thumb is not None and hasattr(thumb, "to_dict"):
             thumb = thumb.to_dict()
         if caption_entities is not None:
             caption_entities = [c.to_dict() for c in caption_entities]
@@ -1023,45 +998,41 @@ class Api:
             reply_markup = reply_markup.to_dict()
 
         params = {
-            'chat_id': chat_id,
-            'video': video,
-            'duration': duration,
-            'width': width,
-            'height': height,
-            'thumb': thumb,
-            'caption': caption,
-            'parse_mode': parse_mode,
-            'caption_entities': caption_entities,
-            'supports_streaming': supports_streaming,
-            'disable_notification': disable_notification,
-            'reply_to_message_id': reply_to_message_id,
-            'allow_sending_without_reply': allow_sending_without_reply,
-            'reply_markup': reply_markup,
+            "chat_id": chat_id,
+            "video": video,
+            "duration": duration,
+            "width": width,
+            "height": height,
+            "thumb": thumb,
+            "caption": caption,
+            "parse_mode": parse_mode,
+            "caption_entities": caption_entities,
+            "supports_streaming": supports_streaming,
+            "disable_notification": disable_notification,
+            "reply_to_message_id": reply_to_message_id,
+            "allow_sending_without_reply": allow_sending_without_reply,
+            "reply_markup": reply_markup,
         }
-        return self._bind(
-            method_name="sendVideo",
-            params=params,
-            telegram_type=Message
-        )
+        return self._bind(method_name="sendVideo", params=params, telegram_type=Message)
 
-    def send_animation(self,
-                       chat_id: Union[int, str],
-                       animation: Union[InputFile, str],
-                       duration: int = None,
-                       width: int = None,
-                       height: int = None,
-                       thumb: Union[InputFile, str] = None,
-                       caption: str = None,
-                       parse_mode: str = None,
-                       caption_entities: List[MessageEntity] = None,
-                       disable_notification: bool = None,
-                       reply_to_message_id: int = None,
-                       allow_sending_without_reply: bool = None,
-                       reply_markup: Union[InlineKeyboardMarkup,
-                                           ReplyKeyboardMarkup,
-                                           ReplyKeyboardRemove,
-                                           ForceReply] = None
-                       ) -> Message:
+    def send_animation(
+        self,
+        chat_id: Union[int, str],
+        animation: Union[InputFile, str],
+        duration: int = None,
+        width: int = None,
+        height: int = None,
+        thumb: Union[InputFile, str] = None,
+        caption: str = None,
+        parse_mode: str = None,
+        caption_entities: List[MessageEntity] = None,
+        disable_notification: bool = None,
+        reply_to_message_id: int = None,
+        allow_sending_without_reply: bool = None,
+        reply_markup: Union[
+            InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove, ForceReply
+        ] = None,
+    ) -> Message:
         """
         Use this method to send animation files (GIF or H.264/MPEG-4 AVC video
         without sound). On success, the sent Message is returned. Bots can
@@ -1110,9 +1081,9 @@ class Api:
         Returns:
             Message
         """
-        if animation is not None and hasattr(animation, 'to_dict'):
+        if animation is not None and hasattr(animation, "to_dict"):
             animation = animation.to_dict()
-        if thumb is not None and hasattr(thumb, 'to_dict'):
+        if thumb is not None and hasattr(thumb, "to_dict"):
             thumb = thumb.to_dict()
         if caption_entities is not None:
             caption_entities = [c.to_dict() for c in caption_entities]
@@ -1120,41 +1091,39 @@ class Api:
             reply_markup = reply_markup.to_dict()
 
         params = {
-            'chat_id': chat_id,
-            'animation': animation,
-            'duration': duration,
-            'width': width,
-            'height': height,
-            'thumb': thumb,
-            'caption': caption,
-            'parse_mode': parse_mode,
-            'caption_entities': caption_entities,
-            'disable_notification': disable_notification,
-            'reply_to_message_id': reply_to_message_id,
-            'allow_sending_without_reply': allow_sending_without_reply,
-            'reply_markup': reply_markup,
+            "chat_id": chat_id,
+            "animation": animation,
+            "duration": duration,
+            "width": width,
+            "height": height,
+            "thumb": thumb,
+            "caption": caption,
+            "parse_mode": parse_mode,
+            "caption_entities": caption_entities,
+            "disable_notification": disable_notification,
+            "reply_to_message_id": reply_to_message_id,
+            "allow_sending_without_reply": allow_sending_without_reply,
+            "reply_markup": reply_markup,
         }
         return self._bind(
-            method_name="sendAnimation",
-            params=params,
-            telegram_type=Message
+            method_name="sendAnimation", params=params, telegram_type=Message
         )
 
-    def send_voice(self,
-                   chat_id: Union[int, str],
-                   voice: Union[InputFile, str],
-                   caption: str = None,
-                   parse_mode: str = None,
-                   caption_entities: List[MessageEntity] = None,
-                   duration: int = None,
-                   disable_notification: bool = None,
-                   reply_to_message_id: int = None,
-                   allow_sending_without_reply: bool = None,
-                   reply_markup: Union[InlineKeyboardMarkup,
-                                       ReplyKeyboardMarkup,
-                                       ReplyKeyboardRemove,
-                                       ForceReply] = None
-                   ) -> Message:
+    def send_voice(
+        self,
+        chat_id: Union[int, str],
+        voice: Union[InputFile, str],
+        caption: str = None,
+        parse_mode: str = None,
+        caption_entities: List[MessageEntity] = None,
+        duration: int = None,
+        disable_notification: bool = None,
+        reply_to_message_id: int = None,
+        allow_sending_without_reply: bool = None,
+        reply_markup: Union[
+            InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove, ForceReply
+        ] = None,
+    ) -> Message:
         """
         Use this method to send audio files, if you want Telegram clients to
         display the file as a playable voice message. For this to work, your
@@ -1194,7 +1163,7 @@ class Api:
         Returns:
             Message
         """
-        if voice is not None and hasattr(voice, 'to_dict'):
+        if voice is not None and hasattr(voice, "to_dict"):
             voice = voice.to_dict()
         if caption_entities is not None:
             caption_entities = [c.to_dict() for c in caption_entities]
@@ -1202,37 +1171,33 @@ class Api:
             reply_markup = reply_markup.to_dict()
 
         params = {
-            'chat_id': chat_id,
-            'voice': voice,
-            'caption': caption,
-            'parse_mode': parse_mode,
-            'caption_entities': caption_entities,
-            'duration': duration,
-            'disable_notification': disable_notification,
-            'reply_to_message_id': reply_to_message_id,
-            'allow_sending_without_reply': allow_sending_without_reply,
-            'reply_markup': reply_markup,
+            "chat_id": chat_id,
+            "voice": voice,
+            "caption": caption,
+            "parse_mode": parse_mode,
+            "caption_entities": caption_entities,
+            "duration": duration,
+            "disable_notification": disable_notification,
+            "reply_to_message_id": reply_to_message_id,
+            "allow_sending_without_reply": allow_sending_without_reply,
+            "reply_markup": reply_markup,
         }
-        return self._bind(
-            method_name="sendVoice",
-            params=params,
-            telegram_type=Message
-        )
+        return self._bind(method_name="sendVoice", params=params, telegram_type=Message)
 
-    def send_video_note(self,
-                        chat_id: Union[int, str],
-                        video_note: Union[InputFile, str],
-                        duration: int = None,
-                        length: int = None,
-                        thumb: Union[InputFile, str] = None,
-                        disable_notification: bool = None,
-                        reply_to_message_id: int = None,
-                        allow_sending_without_reply: bool = None,
-                        reply_markup: Union[InlineKeyboardMarkup,
-                                            ReplyKeyboardMarkup,
-                                            ReplyKeyboardRemove,
-                                            ForceReply] = None
-                        ) -> Message:
+    def send_video_note(
+        self,
+        chat_id: Union[int, str],
+        video_note: Union[InputFile, str],
+        duration: int = None,
+        length: int = None,
+        thumb: Union[InputFile, str] = None,
+        disable_notification: bool = None,
+        reply_to_message_id: int = None,
+        allow_sending_without_reply: bool = None,
+        reply_markup: Union[
+            InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove, ForceReply
+        ] = None,
+    ) -> Message:
         """
         As of v.4.0, Telegram clients support rounded square mp4 videos of up
         to 1 minute long. Use this method to send video messages. On success,
@@ -1274,40 +1239,38 @@ class Api:
         Returns:
             Message
         """
-        if video_note is not None and hasattr(video_note, 'to_dict'):
+        if video_note is not None and hasattr(video_note, "to_dict"):
             video_note = video_note.to_dict()
-        if thumb is not None and hasattr(thumb, 'to_dict'):
+        if thumb is not None and hasattr(thumb, "to_dict"):
             thumb = thumb.to_dict()
         if reply_markup is not None:
             reply_markup = reply_markup.to_dict()
 
         params = {
-            'chat_id': chat_id,
-            'video_note': video_note,
-            'duration': duration,
-            'length': length,
-            'thumb': thumb,
-            'disable_notification': disable_notification,
-            'reply_to_message_id': reply_to_message_id,
-            'allow_sending_without_reply': allow_sending_without_reply,
-            'reply_markup': reply_markup,
+            "chat_id": chat_id,
+            "video_note": video_note,
+            "duration": duration,
+            "length": length,
+            "thumb": thumb,
+            "disable_notification": disable_notification,
+            "reply_to_message_id": reply_to_message_id,
+            "allow_sending_without_reply": allow_sending_without_reply,
+            "reply_markup": reply_markup,
         }
         return self._bind(
-            method_name="sendVideoNote",
-            params=params,
-            telegram_type=Message
+            method_name="sendVideoNote", params=params, telegram_type=Message
         )
 
-    def send_media_group(self,
-                         chat_id: Union[int, str],
-                         media: List[Union[InputMediaAudio,
-                                           InputMediaDocument,
-                                           InputMediaPhoto,
-                                           InputMediaVideo]],
-                         disable_notification: bool = None,
-                         reply_to_message_id: int = None,
-                         allow_sending_without_reply: bool = None
-                         ) -> List[Message]:
+    def send_media_group(
+        self,
+        chat_id: Union[int, str],
+        media: List[
+            Union[InputMediaAudio, InputMediaDocument, InputMediaPhoto, InputMediaVideo]
+        ],
+        disable_notification: bool = None,
+        reply_to_message_id: int = None,
+        allow_sending_without_reply: bool = None,
+    ) -> List[Message]:
         """
         Use this method to send a group of photos, videos, documents or audios
         as an album. Documents and audio files can be only grouped in an album
@@ -1335,34 +1298,32 @@ class Api:
             media = [m.to_dict() for m in media]
 
         params = {
-            'chat_id': chat_id,
-            'media': media,
-            'disable_notification': disable_notification,
-            'reply_to_message_id': reply_to_message_id,
-            'allow_sending_without_reply': allow_sending_without_reply,
+            "chat_id": chat_id,
+            "media": media,
+            "disable_notification": disable_notification,
+            "reply_to_message_id": reply_to_message_id,
+            "allow_sending_without_reply": allow_sending_without_reply,
         }
         return self._bind(
-            method_name="sendMediaGroup",
-            params=params,
-            telegram_type=List[Message]
+            method_name="sendMediaGroup", params=params, telegram_type=List[Message]
         )
 
-    def send_location(self,
-                      chat_id: Union[int, str],
-                      latitude: float,
-                      longitude: float,
-                      horizontal_accuracy: float = None,
-                      live_period: int = None,
-                      heading: int = None,
-                      proximity_alert_radius: int = None,
-                      disable_notification: bool = None,
-                      reply_to_message_id: int = None,
-                      allow_sending_without_reply: bool = None,
-                      reply_markup: Union[InlineKeyboardMarkup,
-                                          ReplyKeyboardMarkup,
-                                          ReplyKeyboardRemove,
-                                          ForceReply] = None
-                      ) -> Message:
+    def send_location(
+        self,
+        chat_id: Union[int, str],
+        latitude: float,
+        longitude: float,
+        horizontal_accuracy: float = None,
+        live_period: int = None,
+        heading: int = None,
+        proximity_alert_radius: int = None,
+        disable_notification: bool = None,
+        reply_to_message_id: int = None,
+        allow_sending_without_reply: bool = None,
+        reply_markup: Union[
+            InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove, ForceReply
+        ] = None,
+    ) -> Message:
         """
         Use this method to send point on the map. On success, the sent Message
         is returned.
@@ -1401,35 +1362,34 @@ class Api:
             reply_markup = reply_markup.to_dict()
 
         params = {
-            'chat_id': chat_id,
-            'latitude': latitude,
-            'longitude': longitude,
-            'horizontal_accuracy': horizontal_accuracy,
-            'live_period': live_period,
-            'heading': heading,
-            'proximity_alert_radius': proximity_alert_radius,
-            'disable_notification': disable_notification,
-            'reply_to_message_id': reply_to_message_id,
-            'allow_sending_without_reply': allow_sending_without_reply,
-            'reply_markup': reply_markup,
+            "chat_id": chat_id,
+            "latitude": latitude,
+            "longitude": longitude,
+            "horizontal_accuracy": horizontal_accuracy,
+            "live_period": live_period,
+            "heading": heading,
+            "proximity_alert_radius": proximity_alert_radius,
+            "disable_notification": disable_notification,
+            "reply_to_message_id": reply_to_message_id,
+            "allow_sending_without_reply": allow_sending_without_reply,
+            "reply_markup": reply_markup,
         }
         return self._bind(
-            method_name="sendLocation",
-            params=params,
-            telegram_type=Message
+            method_name="sendLocation", params=params, telegram_type=Message
         )
 
-    def edit_message_live_location(self,
-                                   latitude: float,
-                                   longitude: float,
-                                   chat_id: Union[int, str] = None,
-                                   message_id: int = None,
-                                   inline_message_id: str = None,
-                                   horizontal_accuracy: float = None,
-                                   heading: int = None,
-                                   proximity_alert_radius: int = None,
-                                   reply_markup: InlineKeyboardMarkup = None
-                                   ) -> Message:
+    def edit_message_live_location(
+        self,
+        latitude: float,
+        longitude: float,
+        chat_id: Union[int, str] = None,
+        message_id: int = None,
+        inline_message_id: str = None,
+        horizontal_accuracy: float = None,
+        heading: int = None,
+        proximity_alert_radius: int = None,
+        reply_markup: InlineKeyboardMarkup = None,
+    ) -> Message:
         """
         Use this method to edit live location messages. A location can be
         edited until its live_period expires or editing is explicitly disabled
@@ -1466,28 +1426,27 @@ class Api:
             reply_markup = reply_markup.to_dict()
 
         params = {
-            'latitude': latitude,
-            'longitude': longitude,
-            'chat_id': chat_id,
-            'message_id': message_id,
-            'inline_message_id': inline_message_id,
-            'horizontal_accuracy': horizontal_accuracy,
-            'heading': heading,
-            'proximity_alert_radius': proximity_alert_radius,
-            'reply_markup': reply_markup,
+            "latitude": latitude,
+            "longitude": longitude,
+            "chat_id": chat_id,
+            "message_id": message_id,
+            "inline_message_id": inline_message_id,
+            "horizontal_accuracy": horizontal_accuracy,
+            "heading": heading,
+            "proximity_alert_radius": proximity_alert_radius,
+            "reply_markup": reply_markup,
         }
         return self._bind(
-            method_name="editMessageLiveLocation",
-            params=params,
-            telegram_type=Message
+            method_name="editMessageLiveLocation", params=params, telegram_type=Message
         )
 
-    def stop_message_live_location(self,
-                                   chat_id: Union[int, str] = None,
-                                   message_id: int = None,
-                                   inline_message_id: str = None,
-                                   reply_markup: InlineKeyboardMarkup = None
-                                   ) -> Message:
+    def stop_message_live_location(
+        self,
+        chat_id: Union[int, str] = None,
+        message_id: int = None,
+        inline_message_id: str = None,
+        reply_markup: InlineKeyboardMarkup = None,
+    ) -> Message:
         """
         Use this method to stop updating a live location message before
         live_period expires. On success, if the message was sent by the bot,
@@ -1513,35 +1472,33 @@ class Api:
             reply_markup = reply_markup.to_dict()
 
         params = {
-            'chat_id': chat_id,
-            'message_id': message_id,
-            'inline_message_id': inline_message_id,
-            'reply_markup': reply_markup,
+            "chat_id": chat_id,
+            "message_id": message_id,
+            "inline_message_id": inline_message_id,
+            "reply_markup": reply_markup,
         }
         return self._bind(
-            method_name="stopMessageLiveLocation",
-            params=params,
-            telegram_type=Message
+            method_name="stopMessageLiveLocation", params=params, telegram_type=Message
         )
 
-    def send_venue(self,
-                   chat_id: Union[int, str],
-                   latitude: float,
-                   longitude: float,
-                   title: str,
-                   address: str,
-                   foursquare_id: str = None,
-                   foursquare_type: str = None,
-                   google_place_id: str = None,
-                   google_place_type: str = None,
-                   disable_notification: bool = None,
-                   reply_to_message_id: int = None,
-                   allow_sending_without_reply: bool = None,
-                   reply_markup: Union[InlineKeyboardMarkup,
-                                       ReplyKeyboardMarkup,
-                                       ReplyKeyboardRemove,
-                                       ForceReply] = None
-                   ) -> Message:
+    def send_venue(
+        self,
+        chat_id: Union[int, str],
+        latitude: float,
+        longitude: float,
+        title: str,
+        address: str,
+        foursquare_id: str = None,
+        foursquare_type: str = None,
+        google_place_id: str = None,
+        google_place_type: str = None,
+        disable_notification: bool = None,
+        reply_to_message_id: int = None,
+        allow_sending_without_reply: bool = None,
+        reply_markup: Union[
+            InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove, ForceReply
+        ] = None,
+    ) -> Message:
         """
         Use this method to send information about a venue. On success, the sent
         Message is returned.
@@ -1580,40 +1537,36 @@ class Api:
             reply_markup = reply_markup.to_dict()
 
         params = {
-            'chat_id': chat_id,
-            'latitude': latitude,
-            'longitude': longitude,
-            'title': title,
-            'address': address,
-            'foursquare_id': foursquare_id,
-            'foursquare_type': foursquare_type,
-            'google_place_id': google_place_id,
-            'google_place_type': google_place_type,
-            'disable_notification': disable_notification,
-            'reply_to_message_id': reply_to_message_id,
-            'allow_sending_without_reply': allow_sending_without_reply,
-            'reply_markup': reply_markup,
+            "chat_id": chat_id,
+            "latitude": latitude,
+            "longitude": longitude,
+            "title": title,
+            "address": address,
+            "foursquare_id": foursquare_id,
+            "foursquare_type": foursquare_type,
+            "google_place_id": google_place_id,
+            "google_place_type": google_place_type,
+            "disable_notification": disable_notification,
+            "reply_to_message_id": reply_to_message_id,
+            "allow_sending_without_reply": allow_sending_without_reply,
+            "reply_markup": reply_markup,
         }
-        return self._bind(
-            method_name="sendVenue",
-            params=params,
-            telegram_type=Message
-        )
+        return self._bind(method_name="sendVenue", params=params, telegram_type=Message)
 
-    def send_contact(self,
-                     chat_id: Union[int, str],
-                     phone_number: str,
-                     first_name: str,
-                     last_name: str = None,
-                     vcard: str = None,
-                     disable_notification: bool = None,
-                     reply_to_message_id: int = None,
-                     allow_sending_without_reply: bool = None,
-                     reply_markup: Union[InlineKeyboardMarkup,
-                                         ReplyKeyboardMarkup,
-                                         ReplyKeyboardRemove,
-                                         ForceReply] = None
-                     ) -> Message:
+    def send_contact(
+        self,
+        chat_id: Union[int, str],
+        phone_number: str,
+        first_name: str,
+        last_name: str = None,
+        vcard: str = None,
+        disable_notification: bool = None,
+        reply_to_message_id: int = None,
+        allow_sending_without_reply: bool = None,
+        reply_markup: Union[
+            InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove, ForceReply
+        ] = None,
+    ) -> Message:
         """
         Use this method to send phone contacts. On success, the sent Message is
         returned.
@@ -1646,44 +1599,42 @@ class Api:
             reply_markup = reply_markup.to_dict()
 
         params = {
-            'chat_id': chat_id,
-            'phone_number': phone_number,
-            'first_name': first_name,
-            'last_name': last_name,
-            'vcard': vcard,
-            'disable_notification': disable_notification,
-            'reply_to_message_id': reply_to_message_id,
-            'allow_sending_without_reply': allow_sending_without_reply,
-            'reply_markup': reply_markup,
+            "chat_id": chat_id,
+            "phone_number": phone_number,
+            "first_name": first_name,
+            "last_name": last_name,
+            "vcard": vcard,
+            "disable_notification": disable_notification,
+            "reply_to_message_id": reply_to_message_id,
+            "allow_sending_without_reply": allow_sending_without_reply,
+            "reply_markup": reply_markup,
         }
         return self._bind(
-            method_name="sendContact",
-            params=params,
-            telegram_type=Message
+            method_name="sendContact", params=params, telegram_type=Message
         )
 
-    def send_poll(self,
-                  chat_id: Union[int, str],
-                  question: str,
-                  options: List[str],
-                  is_anonymous: bool = None,
-                  type: str = None,
-                  allows_multiple_answers: bool = None,
-                  correct_option_id: int = None,
-                  explanation: str = None,
-                  explanation_parse_mode: str = None,
-                  explanation_entities: List[MessageEntity] = None,
-                  open_period: int = None,
-                  close_date: datetime = None,
-                  is_closed: bool = None,
-                  disable_notification: bool = None,
-                  reply_to_message_id: int = None,
-                  allow_sending_without_reply: bool = None,
-                  reply_markup: Union[InlineKeyboardMarkup,
-                                      ReplyKeyboardMarkup,
-                                      ReplyKeyboardRemove,
-                                      ForceReply] = None
-                  ) -> Message:
+    def send_poll(
+        self,
+        chat_id: Union[int, str],
+        question: str,
+        options: List[str],
+        is_anonymous: bool = None,
+        type: str = None,
+        allows_multiple_answers: bool = None,
+        correct_option_id: int = None,
+        explanation: str = None,
+        explanation_parse_mode: str = None,
+        explanation_entities: List[MessageEntity] = None,
+        open_period: int = None,
+        close_date: datetime = None,
+        is_closed: bool = None,
+        disable_notification: bool = None,
+        reply_to_message_id: int = None,
+        allow_sending_without_reply: bool = None,
+        reply_markup: Union[
+            InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove, ForceReply
+        ] = None,
+    ) -> Message:
         """
         Use this method to send a native poll. On success, the sent Message is
         returned.
@@ -1738,41 +1689,37 @@ class Api:
             reply_markup = reply_markup.to_dict()
 
         params = {
-            'chat_id': chat_id,
-            'question': question,
-            'options': options,
-            'is_anonymous': is_anonymous,
-            'type': type,
-            'allows_multiple_answers': allows_multiple_answers,
-            'correct_option_id': correct_option_id,
-            'explanation': explanation,
-            'explanation_parse_mode': explanation_parse_mode,
-            'explanation_entities': explanation_entities,
-            'open_period': open_period,
-            'close_date': close_date,
-            'is_closed': is_closed,
-            'disable_notification': disable_notification,
-            'reply_to_message_id': reply_to_message_id,
-            'allow_sending_without_reply': allow_sending_without_reply,
-            'reply_markup': reply_markup,
+            "chat_id": chat_id,
+            "question": question,
+            "options": options,
+            "is_anonymous": is_anonymous,
+            "type": type,
+            "allows_multiple_answers": allows_multiple_answers,
+            "correct_option_id": correct_option_id,
+            "explanation": explanation,
+            "explanation_parse_mode": explanation_parse_mode,
+            "explanation_entities": explanation_entities,
+            "open_period": open_period,
+            "close_date": close_date,
+            "is_closed": is_closed,
+            "disable_notification": disable_notification,
+            "reply_to_message_id": reply_to_message_id,
+            "allow_sending_without_reply": allow_sending_without_reply,
+            "reply_markup": reply_markup,
         }
-        return self._bind(
-            method_name="sendPoll",
-            params=params,
-            telegram_type=Message
-        )
+        return self._bind(method_name="sendPoll", params=params, telegram_type=Message)
 
-    def send_dice(self,
-                  chat_id: Union[int, str],
-                  emoji: str = None,
-                  disable_notification: bool = None,
-                  reply_to_message_id: int = None,
-                  allow_sending_without_reply: bool = None,
-                  reply_markup: Union[InlineKeyboardMarkup,
-                                      ReplyKeyboardMarkup,
-                                      ReplyKeyboardRemove,
-                                      ForceReply] = None
-                  ) -> Message:
+    def send_dice(
+        self,
+        chat_id: Union[int, str],
+        emoji: str = None,
+        disable_notification: bool = None,
+        reply_to_message_id: int = None,
+        allow_sending_without_reply: bool = None,
+        reply_markup: Union[
+            InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove, ForceReply
+        ] = None,
+    ) -> Message:
         """
         Use this method to send an animated emoji that will display a random
         value. On success, the sent Message is returned.
@@ -1804,23 +1751,16 @@ class Api:
             reply_markup = reply_markup.to_dict()
 
         params = {
-            'chat_id': chat_id,
-            'emoji': emoji,
-            'disable_notification': disable_notification,
-            'reply_to_message_id': reply_to_message_id,
-            'allow_sending_without_reply': allow_sending_without_reply,
-            'reply_markup': reply_markup,
+            "chat_id": chat_id,
+            "emoji": emoji,
+            "disable_notification": disable_notification,
+            "reply_to_message_id": reply_to_message_id,
+            "allow_sending_without_reply": allow_sending_without_reply,
+            "reply_markup": reply_markup,
         }
-        return self._bind(
-            method_name="sendDice",
-            params=params,
-            telegram_type=Message
-        )
+        return self._bind(method_name="sendDice", params=params, telegram_type=Message)
 
-    def send_chat_action(self,
-                         chat_id: Union[int, str],
-                         action: str
-                         ) -> bool:
+    def send_chat_action(self, chat_id: Union[int, str], action: str) -> bool:
         """
         Use this method when you need to tell the user that something is
         happening on the bot's side. The status is set for 5 seconds or less
@@ -1853,20 +1793,16 @@ class Api:
         """
 
         params = {
-            'chat_id': chat_id,
-            'action': action,
+            "chat_id": chat_id,
+            "action": action,
         }
         return self._bind(
-            method_name="sendChatAction",
-            params=params,
-            telegram_type=bool
+            method_name="sendChatAction", params=params, telegram_type=bool
         )
 
-    def get_user_profile_photos(self,
-                                user_id: int,
-                                offset: int = None,
-                                limit: int = None
-                                ) -> UserProfilePhotos:
+    def get_user_profile_photos(
+        self, user_id: int, offset: int = None, limit: int = None
+    ) -> UserProfilePhotos:
         """
         Use this method to get a list of profile pictures for a user. Returns a
         UserProfilePhotos object.
@@ -1885,19 +1821,17 @@ class Api:
         """
 
         params = {
-            'user_id': user_id,
-            'offset': offset,
-            'limit': limit,
+            "user_id": user_id,
+            "offset": offset,
+            "limit": limit,
         }
         return self._bind(
             method_name="getUserProfilePhotos",
             params=params,
-            telegram_type=UserProfilePhotos
+            telegram_type=UserProfilePhotos,
         )
 
-    def get_file(self,
-                 file_id: str
-                 ) -> File:
+    def get_file(self, file_id: str) -> File:
         """
         Use this method to get basic info about a file and prepare it for
         downloading. For the moment, bots can download files of up to 20MB in
@@ -1918,20 +1852,17 @@ class Api:
         """
 
         params = {
-            'file_id': file_id,
+            "file_id": file_id,
         }
-        return self._bind(
-            method_name="getFile",
-            params=params,
-            telegram_type=File
-        )
+        return self._bind(method_name="getFile", params=params, telegram_type=File)
 
-    def kick_chat_member(self,
-                         chat_id: Union[int, str],
-                         user_id: int,
-                         until_date: datetime = None,
-                         revoke_messages: bool = None
-                         ) -> bool:
+    def kick_chat_member(
+        self,
+        chat_id: Union[int, str],
+        user_id: int,
+        until_date: datetime = None,
+        revoke_messages: bool = None,
+    ) -> bool:
         """
         Use this method to kick a user from a group, a supergroup or a channel.
         In the case of supergroups and channels, the user will not be able to
@@ -1961,22 +1892,18 @@ class Api:
         """
 
         params = {
-            'chat_id': chat_id,
-            'user_id': user_id,
-            'until_date': until_date,
-            'revoke_messages': revoke_messages,
+            "chat_id": chat_id,
+            "user_id": user_id,
+            "until_date": until_date,
+            "revoke_messages": revoke_messages,
         }
         return self._bind(
-            method_name="kickChatMember",
-            params=params,
-            telegram_type=bool
+            method_name="kickChatMember", params=params, telegram_type=bool
         )
 
-    def unban_chat_member(self,
-                          chat_id: Union[int, str],
-                          user_id: int,
-                          only_if_banned: bool = None
-                          ) -> bool:
+    def unban_chat_member(
+        self, chat_id: Union[int, str], user_id: int, only_if_banned: bool = None
+    ) -> bool:
         """
         Use this method to unban a previously kicked user in a supergroup or
         channel. The user will not return to the group or channel
@@ -2000,22 +1927,21 @@ class Api:
         """
 
         params = {
-            'chat_id': chat_id,
-            'user_id': user_id,
-            'only_if_banned': only_if_banned,
+            "chat_id": chat_id,
+            "user_id": user_id,
+            "only_if_banned": only_if_banned,
         }
         return self._bind(
-            method_name="unbanChatMember",
-            params=params,
-            telegram_type=bool
+            method_name="unbanChatMember", params=params, telegram_type=bool
         )
 
-    def restrict_chat_member(self,
-                             chat_id: Union[int, str],
-                             user_id: int,
-                             permissions: ChatPermissions,
-                             until_date: datetime = None
-                             ) -> bool:
+    def restrict_chat_member(
+        self,
+        chat_id: Union[int, str],
+        user_id: int,
+        permissions: ChatPermissions,
+        until_date: datetime = None,
+    ) -> bool:
         """
         Use this method to restrict a user in a supergroup. The bot must be an
         administrator in the supergroup for this to work and must have the
@@ -2041,32 +1967,31 @@ class Api:
             permissions = permissions.to_dict()
 
         params = {
-            'chat_id': chat_id,
-            'user_id': user_id,
-            'permissions': permissions,
-            'until_date': until_date,
+            "chat_id": chat_id,
+            "user_id": user_id,
+            "permissions": permissions,
+            "until_date": until_date,
         }
         return self._bind(
-            method_name="restrictChatMember",
-            params=params,
-            telegram_type=bool
+            method_name="restrictChatMember", params=params, telegram_type=bool
         )
 
-    def promote_chat_member(self,
-                            chat_id: Union[int, str],
-                            user_id: int,
-                            is_anonymous: bool = None,
-                            can_manage_chat: bool = None,
-                            can_post_messages: bool = None,
-                            can_edit_messages: bool = None,
-                            can_delete_messages: bool = None,
-                            can_manage_voice_chats: bool = None,
-                            can_restrict_members: bool = None,
-                            can_promote_members: bool = None,
-                            can_change_info: bool = None,
-                            can_invite_users: bool = None,
-                            can_pin_messages: bool = None
-                            ) -> bool:
+    def promote_chat_member(
+        self,
+        chat_id: Union[int, str],
+        user_id: int,
+        is_anonymous: bool = None,
+        can_manage_chat: bool = None,
+        can_post_messages: bool = None,
+        can_edit_messages: bool = None,
+        can_delete_messages: bool = None,
+        can_manage_voice_chats: bool = None,
+        can_restrict_members: bool = None,
+        can_promote_members: bool = None,
+        can_change_info: bool = None,
+        can_invite_users: bool = None,
+        can_pin_messages: bool = None,
+    ) -> bool:
         """
         Use this method to promote or demote a user in a supergroup or a
         channel. The bot must be an administrator in the chat for this to work
@@ -2112,31 +2037,27 @@ class Api:
         """
 
         params = {
-            'chat_id': chat_id,
-            'user_id': user_id,
-            'is_anonymous': is_anonymous,
-            'can_manage_chat': can_manage_chat,
-            'can_post_messages': can_post_messages,
-            'can_edit_messages': can_edit_messages,
-            'can_delete_messages': can_delete_messages,
-            'can_manage_voice_chats': can_manage_voice_chats,
-            'can_restrict_members': can_restrict_members,
-            'can_promote_members': can_promote_members,
-            'can_change_info': can_change_info,
-            'can_invite_users': can_invite_users,
-            'can_pin_messages': can_pin_messages,
+            "chat_id": chat_id,
+            "user_id": user_id,
+            "is_anonymous": is_anonymous,
+            "can_manage_chat": can_manage_chat,
+            "can_post_messages": can_post_messages,
+            "can_edit_messages": can_edit_messages,
+            "can_delete_messages": can_delete_messages,
+            "can_manage_voice_chats": can_manage_voice_chats,
+            "can_restrict_members": can_restrict_members,
+            "can_promote_members": can_promote_members,
+            "can_change_info": can_change_info,
+            "can_invite_users": can_invite_users,
+            "can_pin_messages": can_pin_messages,
         }
         return self._bind(
-            method_name="promoteChatMember",
-            params=params,
-            telegram_type=bool
+            method_name="promoteChatMember", params=params, telegram_type=bool
         )
 
-    def set_chat_administrator_custom_title(self,
-                                            chat_id: Union[int, str],
-                                            user_id: int,
-                                            custom_title: str
-                                            ) -> bool:
+    def set_chat_administrator_custom_title(
+        self, chat_id: Union[int, str], user_id: int, custom_title: str
+    ) -> bool:
         """
         Use this method to set a custom title for an administrator in a
         supergroup promoted by the bot. Returns True on success.
@@ -2155,20 +2076,19 @@ class Api:
         """
 
         params = {
-            'chat_id': chat_id,
-            'user_id': user_id,
-            'custom_title': custom_title,
+            "chat_id": chat_id,
+            "user_id": user_id,
+            "custom_title": custom_title,
         }
         return self._bind(
             method_name="setChatAdministratorCustomTitle",
             params=params,
-            telegram_type=bool
+            telegram_type=bool,
         )
 
-    def set_chat_permissions(self,
-                             chat_id: Union[int, str],
-                             permissions: ChatPermissions
-                             ) -> bool:
+    def set_chat_permissions(
+        self, chat_id: Union[int, str], permissions: ChatPermissions
+    ) -> bool:
         """
         Use this method to set default chat permissions for all members. The
         bot must be an administrator in the group or a supergroup for this to
@@ -2189,18 +2109,14 @@ class Api:
             permissions = permissions.to_dict()
 
         params = {
-            'chat_id': chat_id,
-            'permissions': permissions,
+            "chat_id": chat_id,
+            "permissions": permissions,
         }
         return self._bind(
-            method_name="setChatPermissions",
-            params=params,
-            telegram_type=bool
+            method_name="setChatPermissions", params=params, telegram_type=bool
         )
 
-    def export_chat_invite_link(self,
-                                chat_id: Union[int, str]
-                                ) -> str:
+    def export_chat_invite_link(self, chat_id: Union[int, str]) -> str:
         """
         Use this method to generate a new primary invite link for a chat; any
         previously generated primary link is revoked. The bot must be an
@@ -2219,19 +2135,18 @@ class Api:
         """
 
         params = {
-            'chat_id': chat_id,
+            "chat_id": chat_id,
         }
         return self._bind(
-            method_name="exportChatInviteLink",
-            params=params,
-            telegram_type=str
+            method_name="exportChatInviteLink", params=params, telegram_type=str
         )
 
-    def create_chat_invite_link(self,
-                                chat_id: Union[int, str],
-                                expire_date: datetime = None,
-                                member_limit: int = None
-                                ) -> ChatInviteLink:
+    def create_chat_invite_link(
+        self,
+        chat_id: Union[int, str],
+        expire_date: datetime = None,
+        member_limit: int = None,
+    ) -> ChatInviteLink:
         """
         Use this method to create an additional invite link for a chat. The bot
         must be an administrator in the chat for this to work and must have the
@@ -2255,22 +2170,23 @@ class Api:
         """
 
         params = {
-            'chat_id': chat_id,
-            'expire_date': expire_date,
-            'member_limit': member_limit,
+            "chat_id": chat_id,
+            "expire_date": expire_date,
+            "member_limit": member_limit,
         }
         return self._bind(
             method_name="createChatInviteLink",
             params=params,
-            telegram_type=ChatInviteLink
+            telegram_type=ChatInviteLink,
         )
 
-    def edit_chat_invite_link(self,
-                              chat_id: Union[int, str],
-                              invite_link: str,
-                              expire_date: datetime = None,
-                              member_limit: int = None
-                              ) -> ChatInviteLink:
+    def edit_chat_invite_link(
+        self,
+        chat_id: Union[int, str],
+        invite_link: str,
+        expire_date: datetime = None,
+        member_limit: int = None,
+    ) -> ChatInviteLink:
         """
         Use this method to edit a non-primary invite link created by the bot.
         The bot must be an administrator in the chat for this to work and must
@@ -2294,21 +2210,20 @@ class Api:
         """
 
         params = {
-            'chat_id': chat_id,
-            'invite_link': invite_link,
-            'expire_date': expire_date,
-            'member_limit': member_limit,
+            "chat_id": chat_id,
+            "invite_link": invite_link,
+            "expire_date": expire_date,
+            "member_limit": member_limit,
         }
         return self._bind(
             method_name="editChatInviteLink",
             params=params,
-            telegram_type=ChatInviteLink
+            telegram_type=ChatInviteLink,
         )
 
-    def revoke_chat_invite_link(self,
-                                chat_id: Union[int, str],
-                                invite_link: str
-                                ) -> ChatInviteLink:
+    def revoke_chat_invite_link(
+        self, chat_id: Union[int, str], invite_link: str
+    ) -> ChatInviteLink:
         """
         Use this method to revoke an invite link created by the bot. If the
         primary link is revoked, a new link is automatically generated. The bot
@@ -2328,19 +2243,16 @@ class Api:
         """
 
         params = {
-            'chat_id': chat_id,
-            'invite_link': invite_link,
+            "chat_id": chat_id,
+            "invite_link": invite_link,
         }
         return self._bind(
             method_name="revokeChatInviteLink",
             params=params,
-            telegram_type=ChatInviteLink
+            telegram_type=ChatInviteLink,
         )
 
-    def set_chat_photo(self,
-                       chat_id: Union[int, str],
-                       photo: InputFile
-                       ) -> bool:
+    def set_chat_photo(self, chat_id: Union[int, str], photo: InputFile) -> bool:
         """
         Use this method to set a new profile photo for the chat. Photos can't
         be changed for private chats. The bot must be an administrator in the
@@ -2361,18 +2273,12 @@ class Api:
             photo = photo.to_dict()
 
         params = {
-            'chat_id': chat_id,
-            'photo': photo,
+            "chat_id": chat_id,
+            "photo": photo,
         }
-        return self._bind(
-            method_name="setChatPhoto",
-            params=params,
-            telegram_type=bool
-        )
+        return self._bind(method_name="setChatPhoto", params=params, telegram_type=bool)
 
-    def delete_chat_photo(self,
-                          chat_id: Union[int, str]
-                          ) -> bool:
+    def delete_chat_photo(self, chat_id: Union[int, str]) -> bool:
         """
         Use this method to delete a chat photo. Photos can't be changed for
         private chats. The bot must be an administrator in the chat for this to
@@ -2390,18 +2296,13 @@ class Api:
         """
 
         params = {
-            'chat_id': chat_id,
+            "chat_id": chat_id,
         }
         return self._bind(
-            method_name="deleteChatPhoto",
-            params=params,
-            telegram_type=bool
+            method_name="deleteChatPhoto", params=params, telegram_type=bool
         )
 
-    def set_chat_title(self,
-                       chat_id: Union[int, str],
-                       title: str
-                       ) -> bool:
+    def set_chat_title(self, chat_id: Union[int, str], title: str) -> bool:
         """
         Use this method to change the title of a chat. Titles can't be changed
         for private chats. The bot must be an administrator in the chat for
@@ -2420,19 +2321,14 @@ class Api:
         """
 
         params = {
-            'chat_id': chat_id,
-            'title': title,
+            "chat_id": chat_id,
+            "title": title,
         }
-        return self._bind(
-            method_name="setChatTitle",
-            params=params,
-            telegram_type=bool
-        )
+        return self._bind(method_name="setChatTitle", params=params, telegram_type=bool)
 
-    def set_chat_description(self,
-                             chat_id: Union[int, str],
-                             description: str = None
-                             ) -> bool:
+    def set_chat_description(
+        self, chat_id: Union[int, str], description: str = None
+    ) -> bool:
         """
         Use this method to change the description of a group, a supergroup or a
         channel. The bot must be an administrator in the chat for this to work
@@ -2450,20 +2346,19 @@ class Api:
         """
 
         params = {
-            'chat_id': chat_id,
-            'description': description,
+            "chat_id": chat_id,
+            "description": description,
         }
         return self._bind(
-            method_name="setChatDescription",
-            params=params,
-            telegram_type=bool
+            method_name="setChatDescription", params=params, telegram_type=bool
         )
 
-    def pin_chat_message(self,
-                         chat_id: Union[int, str],
-                         message_id: int,
-                         disable_notification: bool = None
-                         ) -> bool:
+    def pin_chat_message(
+        self,
+        chat_id: Union[int, str],
+        message_id: int,
+        disable_notification: bool = None,
+    ) -> bool:
         """
         Use this method to add a message to the list of pinned messages in a
         chat. If the chat is not a private chat, the bot must be an
@@ -2487,20 +2382,17 @@ class Api:
         """
 
         params = {
-            'chat_id': chat_id,
-            'message_id': message_id,
-            'disable_notification': disable_notification,
+            "chat_id": chat_id,
+            "message_id": message_id,
+            "disable_notification": disable_notification,
         }
         return self._bind(
-            method_name="pinChatMessage",
-            params=params,
-            telegram_type=bool
+            method_name="pinChatMessage", params=params, telegram_type=bool
         )
 
-    def unpin_chat_message(self,
-                           chat_id: Union[int, str],
-                           message_id: int = None
-                           ) -> bool:
+    def unpin_chat_message(
+        self, chat_id: Union[int, str], message_id: int = None
+    ) -> bool:
         """
         Use this method to remove a message from the list of pinned messages in
         a chat. If the chat is not a private chat, the bot must be an
@@ -2522,18 +2414,14 @@ class Api:
         """
 
         params = {
-            'chat_id': chat_id,
-            'message_id': message_id,
+            "chat_id": chat_id,
+            "message_id": message_id,
         }
         return self._bind(
-            method_name="unpinChatMessage",
-            params=params,
-            telegram_type=bool
+            method_name="unpinChatMessage", params=params, telegram_type=bool
         )
 
-    def unpin_all_chat_messages(self,
-                                chat_id: Union[int, str]
-                                ) -> bool:
+    def unpin_all_chat_messages(self, chat_id: Union[int, str]) -> bool:
         """
         Use this method to clear the list of pinned messages in a chat. If the
         chat is not a private chat, the bot must be an administrator in the
@@ -2552,17 +2440,13 @@ class Api:
         """
 
         params = {
-            'chat_id': chat_id,
+            "chat_id": chat_id,
         }
         return self._bind(
-            method_name="unpinAllChatMessages",
-            params=params,
-            telegram_type=bool
+            method_name="unpinAllChatMessages", params=params, telegram_type=bool
         )
 
-    def leave_chat(self,
-                   chat_id: Union[int, str]
-                   ) -> bool:
+    def leave_chat(self, chat_id: Union[int, str]) -> bool:
         """
         Use this method for your bot to leave a group, supergroup or channel.
         Returns True on success.
@@ -2579,17 +2463,11 @@ class Api:
         """
 
         params = {
-            'chat_id': chat_id,
+            "chat_id": chat_id,
         }
-        return self._bind(
-            method_name="leaveChat",
-            params=params,
-            telegram_type=bool
-        )
+        return self._bind(method_name="leaveChat", params=params, telegram_type=bool)
 
-    def get_chat(self,
-                 chat_id: Union[int, str]
-                 ) -> Chat:
+    def get_chat(self, chat_id: Union[int, str]) -> Chat:
         """
         Use this method to get up to date information about the chat (current
         name of the user for one-on-one conversations, current username of a
@@ -2607,17 +2485,11 @@ class Api:
         """
 
         params = {
-            'chat_id': chat_id,
+            "chat_id": chat_id,
         }
-        return self._bind(
-            method_name="getChat",
-            params=params,
-            telegram_type=Chat
-        )
+        return self._bind(method_name="getChat", params=params, telegram_type=Chat)
 
-    def get_chat_administrators(self,
-                                chat_id: Union[int, str]
-                                ) -> ChatMember:
+    def get_chat_administrators(self, chat_id: Union[int, str]) -> ChatMember:
         """
         Use this method to get a list of administrators in a chat. On success,
         returns an Array of ChatMember objects that contains information about
@@ -2637,17 +2509,13 @@ class Api:
         """
 
         params = {
-            'chat_id': chat_id,
+            "chat_id": chat_id,
         }
         return self._bind(
-            method_name="getChatAdministrators",
-            params=params,
-            telegram_type=ChatMember
+            method_name="getChatAdministrators", params=params, telegram_type=ChatMember
         )
 
-    def get_chat_members_count(self,
-                               chat_id: Union[int, str]
-                               ) -> int:
+    def get_chat_members_count(self, chat_id: Union[int, str]) -> int:
         """
         Use this method to get the number of members in a chat. Returns Int on
         success.
@@ -2664,18 +2532,13 @@ class Api:
         """
 
         params = {
-            'chat_id': chat_id,
+            "chat_id": chat_id,
         }
         return self._bind(
-            method_name="getChatMembersCount",
-            params=params,
-            telegram_type=int
+            method_name="getChatMembersCount", params=params, telegram_type=int
         )
 
-    def get_chat_member(self,
-                        chat_id: Union[int, str],
-                        user_id: int
-                        ) -> ChatMember:
+    def get_chat_member(self, chat_id: Union[int, str], user_id: int) -> ChatMember:
         """
         Use this method to get information about a member of a chat. Returns a
         ChatMember object on success.
@@ -2693,19 +2556,16 @@ class Api:
         """
 
         params = {
-            'chat_id': chat_id,
-            'user_id': user_id,
+            "chat_id": chat_id,
+            "user_id": user_id,
         }
         return self._bind(
-            method_name="getChatMember",
-            params=params,
-            telegram_type=ChatMember
+            method_name="getChatMember", params=params, telegram_type=ChatMember
         )
 
-    def set_chat_sticker_set(self,
-                             chat_id: Union[int, str],
-                             sticker_set_name: str
-                             ) -> bool:
+    def set_chat_sticker_set(
+        self, chat_id: Union[int, str], sticker_set_name: str
+    ) -> bool:
         """
         Use this method to set a new group sticker set for a supergroup. The
         bot must be an administrator in the chat for this to work and must have
@@ -2726,18 +2586,14 @@ class Api:
         """
 
         params = {
-            'chat_id': chat_id,
-            'sticker_set_name': sticker_set_name,
+            "chat_id": chat_id,
+            "sticker_set_name": sticker_set_name,
         }
         return self._bind(
-            method_name="setChatStickerSet",
-            params=params,
-            telegram_type=bool
+            method_name="setChatStickerSet", params=params, telegram_type=bool
         )
 
-    def delete_chat_sticker_set(self,
-                                chat_id: Union[int, str]
-                                ) -> bool:
+    def delete_chat_sticker_set(self, chat_id: Union[int, str]) -> bool:
         """
         Use this method to delete a group sticker set from a supergroup. The
         bot must be an administrator in the chat for this to work and must have
@@ -2756,21 +2612,20 @@ class Api:
         """
 
         params = {
-            'chat_id': chat_id,
+            "chat_id": chat_id,
         }
         return self._bind(
-            method_name="deleteChatStickerSet",
-            params=params,
-            telegram_type=bool
+            method_name="deleteChatStickerSet", params=params, telegram_type=bool
         )
 
-    def answer_callback_query(self,
-                              callback_query_id: str,
-                              text: str = None,
-                              show_alert: bool = None,
-                              url: str = None,
-                              cache_time: int = None
-                              ) -> bool:
+    def answer_callback_query(
+        self,
+        callback_query_id: str,
+        text: str = None,
+        show_alert: bool = None,
+        url: str = None,
+        cache_time: int = None,
+    ) -> bool:
         """
         Use this method to send answers to callback queries sent from inline
         keyboards. The answer will be displayed to the user as a notification
@@ -2808,21 +2663,17 @@ class Api:
         """
 
         params = {
-            'callback_query_id': callback_query_id,
-            'text': text,
-            'show_alert': show_alert,
-            'url': url,
-            'cache_time': cache_time,
+            "callback_query_id": callback_query_id,
+            "text": text,
+            "show_alert": show_alert,
+            "url": url,
+            "cache_time": cache_time,
         }
         return self._bind(
-            method_name="answerCallbackQuery",
-            params=params,
-            telegram_type=bool
+            method_name="answerCallbackQuery", params=params, telegram_type=bool
         )
 
-    def set_my_commands(self,
-                        commands: List[BotCommand]
-                        ) -> bool:
+    def set_my_commands(self, commands: List[BotCommand]) -> bool:
         """
         Use this method to change the list of the bot's commands. Returns True
         on success.
@@ -2841,16 +2692,15 @@ class Api:
             commands = [c.to_dict() for c in commands]
 
         params = {
-            'commands': commands,
+            "commands": commands,
         }
         return self._bind(
-            method_name="setMyCommands",
-            params=params,
-            telegram_type=bool
+            method_name="setMyCommands", params=params, telegram_type=bool
         )
 
-    def get_my_commands(self,
-                        ) -> BotCommand:
+    def get_my_commands(
+        self,
+    ) -> BotCommand:
         """
         Use this method to get the current list of the bot's commands. Requires
         no parameters. Returns Array of BotCommand on success.
@@ -2861,21 +2711,19 @@ class Api:
         Returns:
             BotCommand
         """
-        return self._bind(
-            method_name="getMyCommands",
-            telegram_type=BotCommand
-        )
+        return self._bind(method_name="getMyCommands", telegram_type=BotCommand)
 
-    def edit_message_text(self,
-                          text: str,
-                          chat_id: Union[int, str] = None,
-                          message_id: int = None,
-                          inline_message_id: str = None,
-                          parse_mode: str = None,
-                          entities: List[MessageEntity] = None,
-                          disable_web_page_preview: bool = None,
-                          reply_markup: InlineKeyboardMarkup = None
-                          ) -> Message:
+    def edit_message_text(
+        self,
+        text: str,
+        chat_id: Union[int, str] = None,
+        message_id: int = None,
+        inline_message_id: str = None,
+        parse_mode: str = None,
+        entities: List[MessageEntity] = None,
+        disable_web_page_preview: bool = None,
+        reply_markup: InlineKeyboardMarkup = None,
+    ) -> Message:
         """
         Use this method to edit text and game messages. On success, if the
         edited message is not an inline message, the edited Message is
@@ -2910,30 +2758,29 @@ class Api:
             reply_markup = json.dumps(reply_markup.to_dict())
 
         params = {
-            'text': text,
-            'chat_id': chat_id,
-            'message_id': message_id,
-            'inline_message_id': inline_message_id,
-            'parse_mode': parse_mode,
-            'entities': entities,
-            'disable_web_page_preview': disable_web_page_preview,
-            'reply_markup': reply_markup,
+            "text": text,
+            "chat_id": chat_id,
+            "message_id": message_id,
+            "inline_message_id": inline_message_id,
+            "parse_mode": parse_mode,
+            "entities": entities,
+            "disable_web_page_preview": disable_web_page_preview,
+            "reply_markup": reply_markup,
         }
         return self._bind(
-            method_name="editMessageText",
-            params=params,
-            telegram_type=Message
+            method_name="editMessageText", params=params, telegram_type=Message
         )
 
-    def edit_message_caption(self,
-                             chat_id: Union[int, str] = None,
-                             message_id: int = None,
-                             inline_message_id: str = None,
-                             caption: str = None,
-                             parse_mode: str = None,
-                             caption_entities: List[MessageEntity] = None,
-                             reply_markup: InlineKeyboardMarkup = None
-                             ) -> Message:
+    def edit_message_caption(
+        self,
+        chat_id: Union[int, str] = None,
+        message_id: int = None,
+        inline_message_id: str = None,
+        caption: str = None,
+        parse_mode: str = None,
+        caption_entities: List[MessageEntity] = None,
+        reply_markup: InlineKeyboardMarkup = None,
+    ) -> Message:
         """
         Use this method to edit captions of messages. On success, if the edited
         message is not an inline message, the edited Message is returned,
@@ -2966,31 +2813,32 @@ class Api:
             reply_markup = reply_markup.to_dict()
 
         params = {
-            'chat_id': chat_id,
-            'message_id': message_id,
-            'inline_message_id': inline_message_id,
-            'caption': caption,
-            'parse_mode': parse_mode,
-            'caption_entities': caption_entities,
-            'reply_markup': reply_markup,
+            "chat_id": chat_id,
+            "message_id": message_id,
+            "inline_message_id": inline_message_id,
+            "caption": caption,
+            "parse_mode": parse_mode,
+            "caption_entities": caption_entities,
+            "reply_markup": reply_markup,
         }
         return self._bind(
-            method_name="editMessageCaption",
-            params=params,
-            telegram_type=Message
+            method_name="editMessageCaption", params=params, telegram_type=Message
         )
 
-    def edit_message_media(self,
-                           media: Union[InputMediaAnimation,
-                                        InputMediaDocument,
-                                        InputMediaAudio,
-                                        InputMediaPhoto,
-                                        InputMediaVideo],
-                           chat_id: Union[int, str] = None,
-                           message_id: int = None,
-                           inline_message_id: str = None,
-                           reply_markup: InlineKeyboardMarkup = None
-                           ) -> Message:
+    def edit_message_media(
+        self,
+        media: Union[
+            InputMediaAnimation,
+            InputMediaDocument,
+            InputMediaAudio,
+            InputMediaPhoto,
+            InputMediaVideo,
+        ],
+        chat_id: Union[int, str] = None,
+        message_id: int = None,
+        inline_message_id: str = None,
+        reply_markup: InlineKeyboardMarkup = None,
+    ) -> Message:
         """
         Use this method to edit animation, audio, document, photo, or video
         messages. If a message is part of a message album, then it can be
@@ -3025,24 +2873,23 @@ class Api:
             reply_markup = reply_markup.to_dict()
 
         params = {
-            'media': media,
-            'chat_id': chat_id,
-            'message_id': message_id,
-            'inline_message_id': inline_message_id,
-            'reply_markup': reply_markup,
+            "media": media,
+            "chat_id": chat_id,
+            "message_id": message_id,
+            "inline_message_id": inline_message_id,
+            "reply_markup": reply_markup,
         }
         return self._bind(
-            method_name="editMessageMedia",
-            params=params,
-            telegram_type=Message
+            method_name="editMessageMedia", params=params, telegram_type=Message
         )
 
-    def edit_message_reply_markup(self,
-                                  chat_id: Union[int, str] = None,
-                                  message_id: int = None,
-                                  inline_message_id: str = None,
-                                  reply_markup: InlineKeyboardMarkup = None
-                                  ) -> Message:
+    def edit_message_reply_markup(
+        self,
+        chat_id: Union[int, str] = None,
+        message_id: int = None,
+        inline_message_id: str = None,
+        reply_markup: InlineKeyboardMarkup = None,
+    ) -> Message:
         """
         Use this method to edit only the reply markup of messages. On success,
         if the edited message is not an inline message, the edited Message is
@@ -3067,22 +2914,21 @@ class Api:
             reply_markup = reply_markup.to_dict()
 
         params = {
-            'chat_id': chat_id,
-            'message_id': message_id,
-            'inline_message_id': inline_message_id,
-            'reply_markup': reply_markup,
+            "chat_id": chat_id,
+            "message_id": message_id,
+            "inline_message_id": inline_message_id,
+            "reply_markup": reply_markup,
         }
         return self._bind(
-            method_name="editMessageReplyMarkup",
-            params=params,
-            telegram_type=Message
+            method_name="editMessageReplyMarkup", params=params, telegram_type=Message
         )
 
-    def stop_poll(self,
-                  chat_id: Union[int, str],
-                  message_id: int,
-                  reply_markup: InlineKeyboardMarkup = None
-                  ) -> Poll:
+    def stop_poll(
+        self,
+        chat_id: Union[int, str],
+        message_id: int,
+        reply_markup: InlineKeyboardMarkup = None,
+    ) -> Poll:
         """
         Use this method to stop a poll which was sent by the bot. On success,
         the stopped Poll with the final results is returned.
@@ -3103,20 +2949,13 @@ class Api:
             reply_markup = reply_markup.to_dict()
 
         params = {
-            'chat_id': chat_id,
-            'message_id': message_id,
-            'reply_markup': reply_markup,
+            "chat_id": chat_id,
+            "message_id": message_id,
+            "reply_markup": reply_markup,
         }
-        return self._bind(
-            method_name="stopPoll",
-            params=params,
-            telegram_type=Poll
-        )
+        return self._bind(method_name="stopPoll", params=params, telegram_type=Poll)
 
-    def delete_message(self,
-                       chat_id: Union[int, str],
-                       message_id: int
-                       ) -> bool:
+    def delete_message(self, chat_id: Union[int, str], message_id: int) -> bool:
         """
         Use this method to delete a message, including service messages, with
         the following limitations:- A message can only be deleted if it was
@@ -3142,26 +2981,24 @@ class Api:
         """
 
         params = {
-            'chat_id': chat_id,
-            'message_id': message_id,
+            "chat_id": chat_id,
+            "message_id": message_id,
         }
         return self._bind(
-            method_name="deleteMessage",
-            params=params,
-            telegram_type=bool
+            method_name="deleteMessage", params=params, telegram_type=bool
         )
 
-    def send_sticker(self,
-                     chat_id: Union[int, str],
-                     sticker: Union[InputFile, str],
-                     disable_notification: bool = None,
-                     reply_to_message_id: int = None,
-                     allow_sending_without_reply: bool = None,
-                     reply_markup: Union[InlineKeyboardMarkup,
-                                         ReplyKeyboardMarkup,
-                                         ReplyKeyboardRemove,
-                                         ForceReply] = None
-                     ) -> Message:
+    def send_sticker(
+        self,
+        chat_id: Union[int, str],
+        sticker: Union[InputFile, str],
+        disable_notification: bool = None,
+        reply_to_message_id: int = None,
+        allow_sending_without_reply: bool = None,
+        reply_markup: Union[
+            InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove, ForceReply
+        ] = None,
+    ) -> Message:
         """
         Use this method to send static .WEBP or animated .TGS stickers. On
         success, the sent Message is returned.
@@ -3190,28 +3027,24 @@ class Api:
         Returns:
             Message
         """
-        if sticker is not None and hasattr(sticker, 'to_dict'):
+        if sticker is not None and hasattr(sticker, "to_dict"):
             sticker = sticker.to_dict()
         if reply_markup is not None:
             reply_markup = reply_markup.to_dict()
 
         params = {
-            'chat_id': chat_id,
-            'sticker': sticker,
-            'disable_notification': disable_notification,
-            'reply_to_message_id': reply_to_message_id,
-            'allow_sending_without_reply': allow_sending_without_reply,
-            'reply_markup': reply_markup,
+            "chat_id": chat_id,
+            "sticker": sticker,
+            "disable_notification": disable_notification,
+            "reply_to_message_id": reply_to_message_id,
+            "allow_sending_without_reply": allow_sending_without_reply,
+            "reply_markup": reply_markup,
         }
         return self._bind(
-            method_name="sendSticker",
-            params=params,
-            telegram_type=Message
+            method_name="sendSticker", params=params, telegram_type=Message
         )
 
-    def get_sticker_set(self,
-                        name: str
-                        ) -> StickerSet:
+    def get_sticker_set(self, name: str) -> StickerSet:
         """
         Use this method to get a sticker set. On success, a StickerSet object
         is returned.
@@ -3226,18 +3059,13 @@ class Api:
         """
 
         params = {
-            'name': name,
+            "name": name,
         }
         return self._bind(
-            method_name="getStickerSet",
-            params=params,
-            telegram_type=StickerSet
+            method_name="getStickerSet", params=params, telegram_type=StickerSet
         )
 
-    def upload_sticker_file(self,
-                            user_id: int,
-                            png_sticker: InputFile
-                            ) -> File:
+    def upload_sticker_file(self, user_id: int, png_sticker: InputFile) -> File:
         """
         Use this method to upload a .PNG file with a sticker for later use in
         createNewStickerSet and addStickerToSet methods (can be used multiple
@@ -3259,25 +3087,24 @@ class Api:
             png_sticker = png_sticker.to_dict()
 
         params = {
-            'user_id': user_id,
-            'png_sticker': png_sticker,
+            "user_id": user_id,
+            "png_sticker": png_sticker,
         }
         return self._bind(
-            method_name="uploadStickerFile",
-            params=params,
-            telegram_type=File
+            method_name="uploadStickerFile", params=params, telegram_type=File
         )
 
-    def create_new_sticker_set(self,
-                               user_id: int,
-                               name: str,
-                               title: str,
-                               emojis: str,
-                               png_sticker: Union[InputFile, str] = None,
-                               tgs_sticker: InputFile = None,
-                               contains_masks: bool = None,
-                               mask_position: MaskPosition = None
-                               ) -> bool:
+    def create_new_sticker_set(
+        self,
+        user_id: int,
+        name: str,
+        title: str,
+        emojis: str,
+        png_sticker: Union[InputFile, str] = None,
+        tgs_sticker: InputFile = None,
+        contains_masks: bool = None,
+        mask_position: MaskPosition = None,
+    ) -> bool:
         """
         Use this method to create a new sticker set owned by a user. The bot
         will be able to edit the sticker set thus created. You must use exactly
@@ -3313,7 +3140,7 @@ class Api:
         Returns:
             bool
         """
-        if png_sticker is not None and hasattr(png_sticker, 'to_dict'):
+        if png_sticker is not None and hasattr(png_sticker, "to_dict"):
             png_sticker = png_sticker.to_dict()
         if tgs_sticker is not None:
             tgs_sticker = tgs_sticker.to_dict()
@@ -3321,29 +3148,28 @@ class Api:
             mask_position = mask_position.to_dict()
 
         params = {
-            'user_id': user_id,
-            'name': name,
-            'title': title,
-            'emojis': emojis,
-            'png_sticker': png_sticker,
-            'tgs_sticker': tgs_sticker,
-            'contains_masks': contains_masks,
-            'mask_position': mask_position,
+            "user_id": user_id,
+            "name": name,
+            "title": title,
+            "emojis": emojis,
+            "png_sticker": png_sticker,
+            "tgs_sticker": tgs_sticker,
+            "contains_masks": contains_masks,
+            "mask_position": mask_position,
         }
         return self._bind(
-            method_name="createNewStickerSet",
-            params=params,
-            telegram_type=bool
+            method_name="createNewStickerSet", params=params, telegram_type=bool
         )
 
-    def add_sticker_to_set(self,
-                           user_id: int,
-                           name: str,
-                           emojis: str,
-                           png_sticker: Union[InputFile, str] = None,
-                           tgs_sticker: InputFile = None,
-                           mask_position: MaskPosition = None
-                           ) -> bool:
+    def add_sticker_to_set(
+        self,
+        user_id: int,
+        name: str,
+        emojis: str,
+        png_sticker: Union[InputFile, str] = None,
+        tgs_sticker: InputFile = None,
+        mask_position: MaskPosition = None,
+    ) -> bool:
         """
         Use this method to add a new sticker to a set created by the bot. You
         must use exactly one of the fields png_sticker or tgs_sticker. Animated
@@ -3374,7 +3200,7 @@ class Api:
         Returns:
             bool
         """
-        if png_sticker is not None and hasattr(png_sticker, 'to_dict'):
+        if png_sticker is not None and hasattr(png_sticker, "to_dict"):
             png_sticker = png_sticker.to_dict()
         if tgs_sticker is not None:
             tgs_sticker = tgs_sticker.to_dict()
@@ -3382,23 +3208,18 @@ class Api:
             mask_position = mask_position.to_dict()
 
         params = {
-            'user_id': user_id,
-            'name': name,
-            'emojis': emojis,
-            'png_sticker': png_sticker,
-            'tgs_sticker': tgs_sticker,
-            'mask_position': mask_position,
+            "user_id": user_id,
+            "name": name,
+            "emojis": emojis,
+            "png_sticker": png_sticker,
+            "tgs_sticker": tgs_sticker,
+            "mask_position": mask_position,
         }
         return self._bind(
-            method_name="addStickerToSet",
-            params=params,
-            telegram_type=bool
+            method_name="addStickerToSet", params=params, telegram_type=bool
         )
 
-    def set_sticker_position_in_set(self,
-                                    sticker: str,
-                                    position: int
-                                    ) -> bool:
+    def set_sticker_position_in_set(self, sticker: str, position: int) -> bool:
         """
         Use this method to move a sticker in a set created by the bot to a
         specific position. Returns True on success.
@@ -3414,18 +3235,14 @@ class Api:
         """
 
         params = {
-            'sticker': sticker,
-            'position': position,
+            "sticker": sticker,
+            "position": position,
         }
         return self._bind(
-            method_name="setStickerPositionInSet",
-            params=params,
-            telegram_type=bool
+            method_name="setStickerPositionInSet", params=params, telegram_type=bool
         )
 
-    def delete_sticker_from_set(self,
-                                sticker: str
-                                ) -> bool:
+    def delete_sticker_from_set(self, sticker: str) -> bool:
         """
         Use this method to delete a sticker from a set created by the bot.
         Returns True on success.
@@ -3440,19 +3257,15 @@ class Api:
         """
 
         params = {
-            'sticker': sticker,
+            "sticker": sticker,
         }
         return self._bind(
-            method_name="deleteStickerFromSet",
-            params=params,
-            telegram_type=bool
+            method_name="deleteStickerFromSet", params=params, telegram_type=bool
         )
 
-    def set_sticker_set_thumb(self,
-                              name: str,
-                              user_id: int,
-                              thumb: Union[InputFile, str] = None
-                              ) -> bool:
+    def set_sticker_set_thumb(
+        self, name: str, user_id: int, thumb: Union[InputFile, str] = None
+    ) -> bool:
         """
         Use this method to set the thumbnail of a sticker set. Animated
         thumbnails can be set for animated sticker sets only. Returns True on
@@ -3478,48 +3291,51 @@ class Api:
         Returns:
             bool
         """
-        if thumb is not None and hasattr(thumb, 'to_dict'):
+        if thumb is not None and hasattr(thumb, "to_dict"):
             thumb = thumb.to_dict()
 
         params = {
-            'name': name,
-            'user_id': user_id,
-            'thumb': thumb,
+            "name": name,
+            "user_id": user_id,
+            "thumb": thumb,
         }
         return self._bind(
-            method_name="setStickerSetThumb",
-            params=params,
-            telegram_type=bool
+            method_name="setStickerSetThumb", params=params, telegram_type=bool
         )
 
-    def answer_inline_query(self,
-                            inline_query_id: str,
-                            results: List[Union[InlineQueryResultCachedAudio,
-                                                InlineQueryResultCachedDocument,
-                                                InlineQueryResultCachedGif,
-                                                InlineQueryResultCachedMpeg4Gif,
-                                                InlineQueryResultCachedPhoto,
-                                                InlineQueryResultCachedSticker,
-                                                InlineQueryResultCachedVideo,
-                                                InlineQueryResultCachedVoice,
-                                                InlineQueryResultArticle,
-                                                InlineQueryResultAudio,
-                                                InlineQueryResultContact,
-                                                InlineQueryResultGame,
-                                                InlineQueryResultDocument,
-                                                InlineQueryResultGif,
-                                                InlineQueryResultLocation,
-                                                InlineQueryResultMpeg4Gif,
-                                                InlineQueryResultPhoto,
-                                                InlineQueryResultVenue,
-                                                InlineQueryResultVideo,
-                                                InlineQueryResultVoice]],
-                            cache_time: int = None,
-                            is_personal: bool = None,
-                            next_offset: str = None,
-                            switch_pm_text: str = None,
-                            switch_pm_parameter: str = None
-                            ) -> bool:
+    def answer_inline_query(
+        self,
+        inline_query_id: str,
+        results: List[
+            Union[
+                InlineQueryResultCachedAudio,
+                InlineQueryResultCachedDocument,
+                InlineQueryResultCachedGif,
+                InlineQueryResultCachedMpeg4Gif,
+                InlineQueryResultCachedPhoto,
+                InlineQueryResultCachedSticker,
+                InlineQueryResultCachedVideo,
+                InlineQueryResultCachedVoice,
+                InlineQueryResultArticle,
+                InlineQueryResultAudio,
+                InlineQueryResultContact,
+                InlineQueryResultGame,
+                InlineQueryResultDocument,
+                InlineQueryResultGif,
+                InlineQueryResultLocation,
+                InlineQueryResultMpeg4Gif,
+                InlineQueryResultPhoto,
+                InlineQueryResultVenue,
+                InlineQueryResultVideo,
+                InlineQueryResultVoice,
+            ]
+        ],
+        cache_time: int = None,
+        is_personal: bool = None,
+        next_offset: str = None,
+        switch_pm_text: str = None,
+        switch_pm_parameter: str = None,
+    ) -> bool:
         """
         Use this method to send answers to an inline query. On success, True is
         returned.No more than 50 results per query are allowed.
@@ -3564,46 +3380,45 @@ class Api:
             results = [r.to_dict() for r in results]
 
         params = {
-            'inline_query_id': inline_query_id,
-            'results': results,
-            'cache_time': cache_time,
-            'is_personal': is_personal,
-            'next_offset': next_offset,
-            'switch_pm_text': switch_pm_text,
-            'switch_pm_parameter': switch_pm_parameter,
+            "inline_query_id": inline_query_id,
+            "results": results,
+            "cache_time": cache_time,
+            "is_personal": is_personal,
+            "next_offset": next_offset,
+            "switch_pm_text": switch_pm_text,
+            "switch_pm_parameter": switch_pm_parameter,
         }
         return self._bind(
-            method_name="answerInlineQuery",
-            params=params,
-            telegram_type=bool
+            method_name="answerInlineQuery", params=params, telegram_type=bool
         )
 
-    def send_invoice(self,
-                     chat_id: int,
-                     title: str,
-                     description: str,
-                     payload: str,
-                     provider_token: str,
-                     start_parameter: str,
-                     currency: str,
-                     prices: List[LabeledPrice],
-                     provider_data: str = None,
-                     photo_url: str = None,
-                     photo_size: int = None,
-                     photo_width: int = None,
-                     photo_height: int = None,
-                     need_name: bool = None,
-                     need_phone_number: bool = None,
-                     need_email: bool = None,
-                     need_shipping_address: bool = None,
-                     send_phone_number_to_provider: bool = None,
-                     send_email_to_provider: bool = None,
-                     is_flexible: bool = None,
-                     disable_notification: bool = None,
-                     reply_to_message_id: int = None,
-                     allow_sending_without_reply: bool = None,
-                     reply_markup: InlineKeyboardMarkup = None
-                     ) -> Message:
+    def send_invoice(
+        self,
+        chat_id: int,
+        title: str,
+        description: str,
+        payload: str,
+        provider_token: str,
+        start_parameter: str,
+        currency: str,
+        prices: List[LabeledPrice],
+        provider_data: str = None,
+        photo_url: str = None,
+        photo_size: int = None,
+        photo_width: int = None,
+        photo_height: int = None,
+        need_name: bool = None,
+        need_phone_number: bool = None,
+        need_email: bool = None,
+        need_shipping_address: bool = None,
+        send_phone_number_to_provider: bool = None,
+        send_email_to_provider: bool = None,
+        is_flexible: bool = None,
+        disable_notification: bool = None,
+        reply_to_message_id: int = None,
+        allow_sending_without_reply: bool = None,
+        reply_markup: InlineKeyboardMarkup = None,
+    ) -> Message:
         """
         Use this method to send invoices. On success, the sent Message is
         returned.
@@ -3667,43 +3482,42 @@ class Api:
             reply_markup = reply_markup.to_dict()
 
         params = {
-            'chat_id': chat_id,
-            'title': title,
-            'description': description,
-            'payload': payload,
-            'provider_token': provider_token,
-            'start_parameter': start_parameter,
-            'currency': currency,
-            'prices': prices,
-            'provider_data': provider_data,
-            'photo_url': photo_url,
-            'photo_size': photo_size,
-            'photo_width': photo_width,
-            'photo_height': photo_height,
-            'need_name': need_name,
-            'need_phone_number': need_phone_number,
-            'need_email': need_email,
-            'need_shipping_address': need_shipping_address,
-            'send_phone_number_to_provider': send_phone_number_to_provider,
-            'send_email_to_provider': send_email_to_provider,
-            'is_flexible': is_flexible,
-            'disable_notification': disable_notification,
-            'reply_to_message_id': reply_to_message_id,
-            'allow_sending_without_reply': allow_sending_without_reply,
-            'reply_markup': reply_markup,
+            "chat_id": chat_id,
+            "title": title,
+            "description": description,
+            "payload": payload,
+            "provider_token": provider_token,
+            "start_parameter": start_parameter,
+            "currency": currency,
+            "prices": prices,
+            "provider_data": provider_data,
+            "photo_url": photo_url,
+            "photo_size": photo_size,
+            "photo_width": photo_width,
+            "photo_height": photo_height,
+            "need_name": need_name,
+            "need_phone_number": need_phone_number,
+            "need_email": need_email,
+            "need_shipping_address": need_shipping_address,
+            "send_phone_number_to_provider": send_phone_number_to_provider,
+            "send_email_to_provider": send_email_to_provider,
+            "is_flexible": is_flexible,
+            "disable_notification": disable_notification,
+            "reply_to_message_id": reply_to_message_id,
+            "allow_sending_without_reply": allow_sending_without_reply,
+            "reply_markup": reply_markup,
         }
         return self._bind(
-            method_name="sendInvoice",
-            params=params,
-            telegram_type=Message
+            method_name="sendInvoice", params=params, telegram_type=Message
         )
 
-    def answer_shipping_query(self,
-                              shipping_query_id: str,
-                              ok: bool,
-                              shipping_options: List[ShippingOption] = None,
-                              error_message: str = None
-                              ) -> bool:
+    def answer_shipping_query(
+        self,
+        shipping_query_id: str,
+        ok: bool,
+        shipping_options: List[ShippingOption] = None,
+        error_message: str = None,
+    ) -> bool:
         """
         If you sent an invoice requesting a shipping address and the parameter
         is_flexible was specified, the Bot API will send an Update with a
@@ -3732,22 +3546,18 @@ class Api:
             shipping_options = [s.to_dict() for s in shipping_options]
 
         params = {
-            'shipping_query_id': shipping_query_id,
-            'ok': ok,
-            'shipping_options': shipping_options,
-            'error_message': error_message,
+            "shipping_query_id": shipping_query_id,
+            "ok": ok,
+            "shipping_options": shipping_options,
+            "error_message": error_message,
         }
         return self._bind(
-            method_name="answerShippingQuery",
-            params=params,
-            telegram_type=bool
+            method_name="answerShippingQuery", params=params, telegram_type=bool
         )
 
-    def answer_pre_checkout_query(self,
-                                  pre_checkout_query_id: str,
-                                  ok: bool,
-                                  error_message: str = None
-                                  ) -> bool:
+    def answer_pre_checkout_query(
+        self, pre_checkout_query_id: str, ok: bool, error_message: str = None
+    ) -> bool:
         """
         Once the user has confirmed their payment and shipping details, the Bot
         API sends the final confirmation in the form of an Update with the
@@ -3776,29 +3586,31 @@ class Api:
         """
 
         params = {
-            'pre_checkout_query_id': pre_checkout_query_id,
-            'ok': ok,
-            'error_message': error_message,
+            "pre_checkout_query_id": pre_checkout_query_id,
+            "ok": ok,
+            "error_message": error_message,
         }
         return self._bind(
-            method_name="answerPreCheckoutQuery",
-            params=params,
-            telegram_type=bool
+            method_name="answerPreCheckoutQuery", params=params, telegram_type=bool
         )
 
-    def set_passport_data_errors(self,
-                                 user_id: int,
-                                 errors: List[
-                                     Union[PassportElementErrorDataField,
-                                           PassportElementErrorFrontSide,
-                                           PassportElementErrorReverseSide,
-                                           PassportElementErrorSelfie,
-                                           PassportElementErrorFile,
-                                           PassportElementErrorFiles,
-                                           PassportElementErrorTranslationFile,
-                                           PassportElementErrorTranslationFiles,
-                                           PassportElementErrorUnspecified]]
-                                 ) -> bool:
+    def set_passport_data_errors(
+        self,
+        user_id: int,
+        errors: List[
+            Union[
+                PassportElementErrorDataField,
+                PassportElementErrorFrontSide,
+                PassportElementErrorReverseSide,
+                PassportElementErrorSelfie,
+                PassportElementErrorFile,
+                PassportElementErrorFiles,
+                PassportElementErrorTranslationFile,
+                PassportElementErrorTranslationFiles,
+                PassportElementErrorUnspecified,
+            ]
+        ],
+    ) -> bool:
         """
         Informs a user that some of the Telegram Passport elements they
         provided contains errors. The user will not be able to re-submit their
@@ -3824,23 +3636,22 @@ class Api:
             errors = [e.to_dict() for e in errors]
 
         params = {
-            'user_id': user_id,
-            'errors': errors,
+            "user_id": user_id,
+            "errors": errors,
         }
         return self._bind(
-            method_name="setPassportDataErrors",
-            params=params,
-            telegram_type=bool
+            method_name="setPassportDataErrors", params=params, telegram_type=bool
         )
 
-    def send_game(self,
-                  chat_id: int,
-                  game_short_name: str,
-                  disable_notification: bool = None,
-                  reply_to_message_id: int = None,
-                  allow_sending_without_reply: bool = None,
-                  reply_markup: InlineKeyboardMarkup = None
-                  ) -> Message:
+    def send_game(
+        self,
+        chat_id: int,
+        game_short_name: str,
+        disable_notification: bool = None,
+        reply_to_message_id: int = None,
+        allow_sending_without_reply: bool = None,
+        reply_markup: InlineKeyboardMarkup = None,
+    ) -> Message:
         """
         Use this method to send a game. On success, the sent Message is
         returned.
@@ -3868,28 +3679,25 @@ class Api:
             reply_markup = reply_markup.to_dict()
 
         params = {
-            'chat_id': chat_id,
-            'game_short_name': game_short_name,
-            'disable_notification': disable_notification,
-            'reply_to_message_id': reply_to_message_id,
-            'allow_sending_without_reply': allow_sending_without_reply,
-            'reply_markup': reply_markup,
+            "chat_id": chat_id,
+            "game_short_name": game_short_name,
+            "disable_notification": disable_notification,
+            "reply_to_message_id": reply_to_message_id,
+            "allow_sending_without_reply": allow_sending_without_reply,
+            "reply_markup": reply_markup,
         }
-        return self._bind(
-            method_name="sendGame",
-            params=params,
-            telegram_type=Message
-        )
+        return self._bind(method_name="sendGame", params=params, telegram_type=Message)
 
-    def set_game_score(self,
-                       user_id: int,
-                       score: int,
-                       force: bool = None,
-                       disable_edit_message: bool = None,
-                       chat_id: int = None,
-                       message_id: int = None,
-                       inline_message_id: str = None
-                       ) -> Message:
+    def set_game_score(
+        self,
+        user_id: int,
+        score: int,
+        force: bool = None,
+        disable_edit_message: bool = None,
+        chat_id: int = None,
+        message_id: int = None,
+        inline_message_id: str = None,
+    ) -> Message:
         """
         Use this method to set the score of the specified user in a game. On
         success, if the message was sent by the bot, returns the edited
@@ -3918,26 +3726,25 @@ class Api:
         """
 
         params = {
-            'user_id': user_id,
-            'score': score,
-            'force': force,
-            'disable_edit_message': disable_edit_message,
-            'chat_id': chat_id,
-            'message_id': message_id,
-            'inline_message_id': inline_message_id,
+            "user_id": user_id,
+            "score": score,
+            "force": force,
+            "disable_edit_message": disable_edit_message,
+            "chat_id": chat_id,
+            "message_id": message_id,
+            "inline_message_id": inline_message_id,
         }
         return self._bind(
-            method_name="setGameScore",
-            params=params,
-            telegram_type=Message
+            method_name="setGameScore", params=params, telegram_type=Message
         )
 
-    def get_game_high_scores(self,
-                             user_id: int,
-                             chat_id: int = None,
-                             message_id: int = None,
-                             inline_message_id: str = None
-                             ) -> List[GameHighScore]:
+    def get_game_high_scores(
+        self,
+        user_id: int,
+        chat_id: int = None,
+        message_id: int = None,
+        inline_message_id: str = None,
+    ) -> List[GameHighScore]:
         """
         Use this method to get data for high score tables. Will return the
         score of the specified user and several of their neighbors in a game.
@@ -3964,21 +3771,22 @@ class Api:
         """
 
         params = {
-            'user_id': user_id,
-            'chat_id': chat_id,
-            'message_id': message_id,
-            'inline_message_id': inline_message_id,
+            "user_id": user_id,
+            "chat_id": chat_id,
+            "message_id": message_id,
+            "inline_message_id": inline_message_id,
         }
         return self._bind(
             method_name="getGameHighScores",
             params=params,
-            telegram_type=List[GameHighScore]
+            telegram_type=List[GameHighScore],
         )
 
 
 @dataclass(eq=True)
 class SendMessageParams:
-    """ Encapsulate send_message parameters"""
+    """Encapsulate send_message parameters"""
+
     text: str
     parse_mode: str = None
     entities: List[MessageEntity] = None
@@ -3986,8 +3794,10 @@ class SendMessageParams:
     disable_notification: bool = None
     allow_sending_without_reply: bool = None
     reply_markup: Union[
-        InlineKeyboardMarkup, ReplyKeyboardMarkup,
-        ReplyKeyboardRemove, ForceReply,
+        InlineKeyboardMarkup,
+        ReplyKeyboardMarkup,
+        ReplyKeyboardRemove,
+        ForceReply,
     ] = None
 
     def to_dict(self):

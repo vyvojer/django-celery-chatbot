@@ -26,7 +26,6 @@ import logging
 
 from django_chatbot.models import Update
 
-
 log = logging.getLogger(__name__)
 
 

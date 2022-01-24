@@ -6,19 +6,19 @@ from django_chatbot.models import Bot
 
 class UpdateFromSettings(TestCase):
     chatbot_settings = {
-        'WEBHOOK_SITE': "https://example1.com",
-        'BOTS': [
+        "WEBHOOK_SITE": "https://example1.com",
+        "BOTS": [
             {
-                'NAME': "@Bot1",
-                'TOKEN': "bot-1-token",
-                'ROOT_HANDLERCONF': "testapp.handlers"
+                "NAME": "@Bot1",
+                "TOKEN": "bot-1-token",
+                "ROOT_HANDLERCONF": "testapp.handlers",
             },
             {
-                'NAME': "@Bot2",
-                'TOKEN': "bot-2-token",
-                'ROOT_HANDLERCONF': "testapp.handlers",
+                "NAME": "@Bot2",
+                "TOKEN": "bot-2-token",
+                "ROOT_HANDLERCONF": "testapp.handlers",
             },
-        ]
+        ],
     }
 
     @override_settings(DJANGO_CHATBOT=chatbot_settings)

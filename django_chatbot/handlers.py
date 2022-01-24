@@ -47,12 +47,15 @@ class Handler(ABC):
         suppress_form:
 
     """
-    def __init__(self,
-                 name: str,
-                 callback: Optional[Callable[[Update], None]] = None,
-                 async_callback=None,
-                 form_class: Type[Form] = None,
-                 suppress_form: bool = False):
+
+    def __init__(
+        self,
+        name: str,
+        callback: Optional[Callable[[Update], None]] = None,
+        async_callback=None,
+        form_class: Type[Form] = None,
+        suppress_form: bool = False,
+    ):
         self.name = name
         self.callback = callback
         self.async_callback = async_callback
@@ -104,6 +107,7 @@ class DefaultHandler(Handler):
         form_class: Form class to be used for the handler.
 
     """
+
     def match(self, update: Update) -> bool:
         return True
 
@@ -119,6 +123,7 @@ class CommandHandler(Handler):
         command: The telegram command to handle.
 
     """
+
     def __init__(self, *args, command, **kwargs):
         self.command = command
         super().__init__(*args, **kwargs)
@@ -128,8 +133,9 @@ class CommandHandler(Handler):
         message = update.message
         if message and message.entities:
             if [
-                entity for entity in message.entities
-                if entity.type == 'bot_command' and entity.text == self.command
+                entity
+                for entity in message.entities
+                if entity.type == "bot_command" and entity.text == self.command
             ]:
                 match = True
         return match

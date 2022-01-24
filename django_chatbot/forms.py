@@ -23,9 +23,10 @@
 # *****************************************************************************
 
 from __future__ import annotations
+
+import dataclasses
 import logging
 from abc import ABC
-import dataclasses
 from dataclasses import dataclass, field
 from typing import Any, Callable, List, Optional
 
@@ -38,12 +39,10 @@ from django.core.validators import (
 )
 from django.utils.translation import gettext as _
 
-from django_chatbot.models import Form as FormKeeper, Message, Update
+from django_chatbot.models import Form as FormKeeper
+from django_chatbot.models import Message, Update
 from django_chatbot.telegram.api import SendMessageParams
-from django_chatbot.telegram.types import (
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
-)
+from django_chatbot.telegram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 log = logging.getLogger(__name__)
 

@@ -30,11 +30,10 @@ from django.utils import timezone
 from django_chatbot import forms
 from django_chatbot.forms import FormHandler
 from django_chatbot.handlers import DefaultHandler
-from django_chatbot.models import Bot, Chat, Form as FormKeeper, Message, Update
-from django_chatbot.telegram.types import (
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
-)
+from django_chatbot.models import Bot, Chat
+from django_chatbot.models import Form as FormKeeper
+from django_chatbot.models import Message, Update
+from django_chatbot.telegram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from django_chatbot.tests import TestCase as ChatbotTestCase
 
 

@@ -50,15 +50,14 @@ from django_chatbot.tests import TestCase
 
 
 class CommandsTestCase(TestCase):
-
     def test_default_handler(self):
-        response = self.client.send_message('help me')
+        response = self.client.send_message("help me")
         self.assertContains(response, "I don't understand you")
 
     def test_help_command(self):
-        response = self.client.send_message('/help')
+        response = self.client.send_message("/help")
         self.assertContains(response, "/add - add note")
-        self.client.send_message('/start')
+        self.client.send_message("/start")
         self.assertContains(response, "/add - add note")
-        self.client.send_message('/cancel')
+        self.client.send_message("/cancel")
         self.assertContains(response, "/add - add note")

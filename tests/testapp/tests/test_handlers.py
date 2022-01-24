@@ -25,16 +25,13 @@
 from django.test import TestCase
 from django.utils import timezone
 
-from django_chatbot.handlers import (
-    CommandHandler,
-    Handler
-)
+from django_chatbot.handlers import CommandHandler, Handler
 from django_chatbot.models import Bot, Chat, Message, Update
 
 
 class HandlerTest(TestCase):
     def test_handle_update__set_handler_name_if_matches(self):
-        bot = Bot.objects.create(name='bot', token='token')
+        bot = Bot.objects.create(name="bot", token="token")
         self.update = Update.objects.create(bot=bot, update_id=1)
 
         class TestHandler(Handler):
@@ -51,25 +48,17 @@ class HandlerTest(TestCase):
 
 class CommandHandlerTestCase(TestCase):
     def setUp(self) -> None:
-        bot = Bot.objects.create(name='bot', token='token')
+        bot = Bot.objects.create(name="bot", token="token")
         chat = Chat.objects.create(bot=bot, chat_id=1, type="private")
         message = Message.objects.create(
             message_id=1,
             chat=chat,
             date=timezone.datetime(2000, 1, 1, tzinfo=timezone.utc),
-            text='/start /help',
+            text="/start /help",
             _entities=[
-                {
-                    'offset': 0,
-                    'length': 6,
-                    'type': 'bot_command'
-                },
-                {
-                    'offset': 7,
-                    'length': 5,
-                    'type': 'bot_command'
-                },
-            ]
+                {"offset": 0, "length": 6, "type": "bot_command"},
+                {"offset": 7, "length": 5, "type": "bot_command"},
+            ],
         )
         self.update = Update.objects.create(
             bot=bot,
@@ -78,17 +67,11 @@ class CommandHandlerTestCase(TestCase):
         )
 
     def test_match(self):
-        handler = CommandHandler(
-            name="handler", command="/end"
-        )
+        handler = CommandHandler(name="handler", command="/end")
         self.assertEqual(handler.match(self.update), False)
 
-        handler = CommandHandler(
-            name="handler", command="/start"
-        )
+        handler = CommandHandler(name="handler", command="/start")
         self.assertEqual(handler.match(self.update), True)
 
-        handler = CommandHandler(
-            name="handler", command="/help"
-        )
+        handler = CommandHandler(name="handler", command="/help")
         self.assertEqual(handler.match(self.update), True)

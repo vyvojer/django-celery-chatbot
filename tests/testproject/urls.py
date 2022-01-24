@@ -17,6 +17,6 @@ from django.contrib import admin
 from django.urls import include, path
 
 urlpatterns = [
-    path('chatbot/', include('django_chatbot.urls')),
-    path('', admin.site.urls),
+    path("chatbot/", include("django_chatbot.urls")),
+    path("", admin.site.urls),
 ]
