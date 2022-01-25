@@ -3,7 +3,7 @@ from typing import List
 from unittest import TestCase
 from unittest.mock import Mock, patch
 
-from django_chatbot.telegram.api import _Binder, TelegramError
+from django_chatbot.telegram.api import TelegramError, _Binder
 from django_chatbot.telegram.types import TelegramType
 
 
@@ -11,25 +11,21 @@ class BinderTestCase(TestCase):
     @patch("django_chatbot.telegram.api.requests.get")
     def test_bind__without_params_invokes_get(self, mocked_get: Mock):
         mocked_get.return_value.status_code = 200
-        mocked_get.return_value.json.return_value = {
-            "ok": True, "result": None
-        }
+        mocked_get.return_value.json.return_value = {"ok": True, "result": None}
         binder = _Binder(token="test_token", method_name="method_name")
 
         binder.bind()
 
         mocked_get.assert_called_with(
-            url="https://api.telegram.org/bottest_token/method_name")
+            url="https://api.telegram.org/bottest_token/method_name"
+        )
 
     @patch("django_chatbot.telegram.api.requests.post")
     def test_bind__with_params_invokes_post(self, mocked_post: Mock):
         mocked_post.return_value.status_code = 200
-        mocked_post.return_value.json.return_value = {
-            "ok": True, "result": None
-        }
+        mocked_post.return_value.json.return_value = {"ok": True, "result": None}
         params = {"a": 1, "b": 2}
-        binder = _Binder(
-            token="test_token", method_name="method_name", params=params)
+        binder = _Binder(token="test_token", method_name="method_name", params=params)
 
         binder.bind()
 
@@ -41,14 +37,9 @@ class BinderTestCase(TestCase):
     @patch("django_chatbot.telegram.api.requests.post")
     def test_bind__with_params_ignores_none_params(self, mocked_post: Mock):
         mocked_post.return_value.status_code = 200
-        mocked_post.return_value.json.return_value = {
-            "ok": True, "result": None
-        }
+        mocked_post.return_value.json.return_value = {"ok": True, "result": None}
         params = {"a": 1, "b": None, "c": 2}
-        binder = _Binder(
-            token="test_token",
-            method_name="method_name",
-            params=params)
+        binder = _Binder(token="test_token", method_name="method_name", params=params)
 
         binder.bind()
 
@@ -62,7 +53,7 @@ class BinderTestCase(TestCase):
         mocked_get.return_value.status_code = 200
         mocked_get.return_value.json.return_value = {
             "ok": True,
-            "result": {"answer": 42}
+            "result": {"answer": 42},
         }
         binder = _Binder(token="test_token", method_name="method_name")
 
@@ -72,7 +63,7 @@ class BinderTestCase(TestCase):
 
     @patch("django_chatbot.telegram.api.requests.get")
     def test_bind__with_return_type_returns_filled_object_of_type(
-            self, mocked_get: Mock
+        self, mocked_get: Mock
     ):
         mocked_get.return_value.status_code = 200
         mocked_get.return_value.json.return_value = {
@@ -86,8 +77,8 @@ class BinderTestCase(TestCase):
                         {"grandchild_p1": 7, "grandchild_p2": ["e", "f"]},
                     ],
                     "child_p2": 2,
-                }
-            }
+                },
+            },
         }
 
         @dataclass(eq=True)
@@ -106,9 +97,7 @@ class BinderTestCase(TestCase):
             parent_p2: Child
 
         binder = _Binder(
-            token="test_token",
-            method_name="method_name",
-            telegram_type=Parent
+            token="test_token", method_name="method_name", telegram_type=Parent
         )
 
         result = binder.bind()
@@ -125,8 +114,8 @@ class BinderTestCase(TestCase):
                         GrandChild(7, ["e", "f"]),
                     ],
                     child_p2=2,
-                )
-            )
+                ),
+            ),
         )
 
     @patch("django_chatbot.telegram.api.requests.get")

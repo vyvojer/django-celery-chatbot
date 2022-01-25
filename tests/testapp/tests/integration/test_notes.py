@@ -22,6 +22,8 @@
 #  THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 # *****************************************************************************
 
+from testapp.models import Note
+
 # *****************************************************************************
 #  MIT License
 #
@@ -47,7 +49,6 @@
 #
 #
 from django_chatbot.tests import TestCase
-from testapp.models import Note
 
 
 class CommandsTestCase(TestCase):

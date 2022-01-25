@@ -1,14 +1,14 @@
-from unittest.mock import call, patch, Mock
+from unittest.mock import Mock, call, patch
 
 from django.test import TestCase
 
+from django_chatbot.forms import Form
+from django_chatbot.models import Bot
 from django_chatbot.services.dispatcher import (
     Dispatcher,
     _load_bot_handlers,
     load_handlers,
 )
-from django_chatbot.models import Bot
-from django_chatbot.forms import Form
 
 handlers = [
     "handler1",
@@ -26,9 +26,7 @@ class LoadBotHandlersTestCase(TestCase):
         ]
 
     def test_load_bot_handlers(self):
-        bot_handlers = _load_bot_handlers(
-            "testapp.tests.services.test_dispatcher"
-        )
+        bot_handlers = _load_bot_handlers("testapp.tests.services.test_dispatcher")
 
         self.assertEqual(bot_handlers, handlers)
 
@@ -36,16 +34,8 @@ class LoadBotHandlersTestCase(TestCase):
 class LoadHandlersTestCase(TestCase):
     @patch("django_chatbot.services.dispatcher._load_bot_handlers")
     def test_load_handlers(self, mocked_load_bot_handlers: Mock):
-        Bot.objects.create(
-            name="bot1",
-            token="token1",
-            root_handlerconf="module1"
-        )
-        Bot.objects.create(
-            name="bot2",
-            token="token2",
-            root_handlerconf="module2"
-        )
+        Bot.objects.create(name="bot1", token="token1", root_handlerconf="module1")
+        Bot.objects.create(name="bot2", token="token2", root_handlerconf="module2")
         mocked_load_bot_handlers.side_effect = [
             ["handler1_1", "handler1_2"],
             ["handler2_1", "handler2_2"],
@@ -58,14 +48,14 @@ class LoadHandlersTestCase(TestCase):
             {
                 "token1": ["handler1_1", "handler1_2"],
                 "token2": ["handler2_1", "handler2_2"],
-            }
+            },
         )
         self.assertEqual(
             mocked_load_bot_handlers.mock_calls,
             [
                 call("module1"),
                 call("module2"),
-            ]
+            ],
         )
 
 
@@ -75,17 +65,17 @@ class DispatcherTestCase(TestCase):
         Bot.objects.create(name="bot1", token="token1")
         self.bot = Bot.objects.create(name="bot2", token="token2")
         Bot.objects.create(name="bot3", token="token3")
-        self.update_data = {'key': 'value'}
+        self.update_data = {"key": "value"}
 
         self.token_slug = "token2"
 
     @patch("django_chatbot.services.dispatcher.Update.objects.from_telegram")
     @patch("django_chatbot.services.dispatcher.TelegramUpdate.from_dict")
     def test_init__set_attributes(
-            self,
-            mocked_from_dict: Mock,
-            mocked_from_telegram: Mock,
-            mocked_load_handlers: Mock,
+        self,
+        mocked_from_dict: Mock,
+        mocked_from_telegram: Mock,
+        mocked_load_handlers: Mock,
     ):
         update = Mock()
         telegram_update = Mock()
@@ -99,23 +89,23 @@ class DispatcherTestCase(TestCase):
     @patch("django_chatbot.services.dispatcher.Update.objects.from_telegram")
     @patch("django_chatbot.services.dispatcher.TelegramUpdate.from_dict")
     def test_dispatch(
-            self,
-            mocked_from_dict: Mock,
-            mocked_from_telegram: Mock,
-            mocked_load_handlers: Mock,
+        self,
+        mocked_from_dict: Mock,
+        mocked_from_telegram: Mock,
+        mocked_load_handlers: Mock,
     ):
         update = Mock()
         telegram_update = Mock()
         mocked_from_telegram.return_value = update
         mocked_from_dict.return_value = telegram_update
-        handler_1 = Mock(**{'match.return_value': False})
-        handler_2 = Mock(**{'match.return_value': True})
-        handler_3 = Mock(**{'match.return_value': True})
+        handler_1 = Mock(**{"match.return_value": False})
+        handler_2 = Mock(**{"match.return_value": True})
+        handler_3 = Mock(**{"match.return_value": True})
         mocked_load_handlers.return_value = {
-            'token1': [handler_3],
-            'token2': [handler_1, handler_2, handler_3],
+            "token1": [handler_3],
+            "token2": [handler_1, handler_2, handler_3],
         }
-        dispatcher = Dispatcher(token_slug='token2')
+        dispatcher = Dispatcher(token_slug="token2")
 
         dispatcher.dispatch(update_data={})
 
@@ -130,11 +120,11 @@ class DispatcherTestCase(TestCase):
     @patch("django_chatbot.services.dispatcher.Update.objects.from_telegram")
     @patch("django_chatbot.services.dispatcher.TelegramUpdate.from_dict")
     def test_casual_handler_have_does_not_take_precedence_over_form(
-            self,
-            mocked_from_dict: Mock,
-            mocked_from_telegram: Mock,
-            mocked_get_form: Mock,
-            mocked_load_handlers: Mock,
+        self,
+        mocked_from_dict: Mock,
+        mocked_from_telegram: Mock,
+        mocked_get_form: Mock,
+        mocked_load_handlers: Mock,
     ):
         update = Mock()
         telegram_update = Mock()
@@ -143,10 +133,10 @@ class DispatcherTestCase(TestCase):
         form = Mock()
         form_keeper = Mock(form=form)
         mocked_get_form.return_value = form_keeper
-        handler = Mock(**{'match.return_value': True}, suppress_form=False)
-        mocked_load_handlers.return_value = {'token2': [handler]}
+        handler = Mock(**{"match.return_value": True}, suppress_form=False)
+        mocked_load_handlers.return_value = {"token2": [handler]}
 
-        dispatcher = Dispatcher(token_slug='token2')
+        dispatcher = Dispatcher(token_slug="token2")
 
         dispatcher.dispatch(update_data={})
 
@@ -157,11 +147,11 @@ class DispatcherTestCase(TestCase):
     @patch("django_chatbot.services.dispatcher.Update.objects.from_telegram")
     @patch("django_chatbot.services.dispatcher.TelegramUpdate.from_dict")
     def test_handler_with_suppress_form_flag_takes_precedence_over_form(
-            self,
-            mocked_from_dict: Mock,
-            mocked_from_telegram: Mock,
-            mocked_get_form: Mock,
-            mocked_load_handlers: Mock,
+        self,
+        mocked_from_dict: Mock,
+        mocked_from_telegram: Mock,
+        mocked_get_form: Mock,
+        mocked_load_handlers: Mock,
     ):
         update = Mock()
         telegram_update = Mock()
@@ -169,10 +159,10 @@ class DispatcherTestCase(TestCase):
         mocked_from_dict.return_value = telegram_update
         form_keeper = Mock(spec=Form)
         mocked_get_form.return_value = form_keeper
-        handler = Mock(**{'match.return_value': True}, suppress_form=True)
-        mocked_load_handlers.return_value = {'token2': [handler]}
+        handler = Mock(**{"match.return_value": True}, suppress_form=True)
+        mocked_load_handlers.return_value = {"token2": [handler]}
 
-        dispatcher = Dispatcher(token_slug='token2')
+        dispatcher = Dispatcher(token_slug="token2")
 
         dispatcher.dispatch(update_data={})
 

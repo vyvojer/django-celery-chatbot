@@ -1,23 +1,58 @@
 version: '3'
 
 services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: chatbot_app
+    image: chatbot_app
+    volumes: &volumes--app
+      - .:/app
+    logging: &logging
+      driver: "json-file"
+      options:
+        tag: "{{.ImageName}}|{{.Name}}"
+    depends_on:
+      - postgres
+    env_file: &envs-app
+      - .envs/.app
+      - .envs/.postgres
+      - .envs/.redis
+    ports:
+      - "9000:8000"
+    command: scripts/start.sh
+
+  worker:
+    container_name: chatbot_worker
+    image: chatbot_app
+    volumes: *volumes--app
+    logging: *logging
+    depends_on:
+      - postgres
+    env_file: *envs-app
+    command: scripts/start_worker.sh
+
   postgres:
     image: postgres:13.4-alpine
-    container_name: django_chatbot_postgres
+    container_name: chatbot_postgres
     volumes:
       - postgres_data:/var/lib/postgresql/data/
-    environment:
-      - POSTGRES_USER=chatbot
-      - POSTGRES_PASSWORD=chatbot
-      - POSTGRES_DB=chatbot
-    ports:
-      - "5432:5432"
+    env_file: .envs/.postgres
 
   redis:
     image: redis:6.2-alpine
-    container_name: django_chatbot_redis
+    container_name: chatbot_redis
+
+  flower:
+    image: mher/flower
+    container_name: chatbot_flower
+    env_file: .envs/.flower
     ports:
-      - "6379:6379"
+      - "5555:5555"
+    depends_on:
+      - redis
+
 
 volumes:
   postgres_data:

@@ -28,15 +28,15 @@ import logging
 from typing import List, Optional
 
 import jsonpickle
-from django_chatbot.conf import settings
 from django.db import models
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.functional import cached_property
 from django.utils.text import slugify
 
-from django_chatbot.telegram.api import Api, TelegramError
+from django_chatbot.conf import settings
 from django_chatbot.telegram import types
+from django_chatbot.telegram.api import Api, TelegramError
 
 log = logging.getLogger(__name__)
 
@@ -86,7 +86,7 @@ class Bot(models.Model):
         return self.name
 
     def save(
-            self, force_insert=False, force_update=False, using=None, update_fields=None
+        self, force_insert=False, force_update=False, using=None, update_fields=None
     ):
         self.token_slug = slugify(self.token)
         super().save(force_insert, force_update, using, update_fields)
@@ -107,6 +107,7 @@ class Bot(models.Model):
             api = Api(token=self.token)
         else:
             from django_chatbot.tests.test_api import TestApi
+
             api = TestApi(token=self.token)
         return api
 
@@ -157,10 +158,10 @@ class Bot(models.Model):
             return self.webhook_info
 
     def set_webhook(
-            self,
-            domain: str = None,
-            max_connections: int = None,
-            allowed_updates: List[str] = None,
+        self,
+        domain: str = None,
+        max_connections: int = None,
+        allowed_updates: List[str] = None,
     ) -> bool:
         """Set webhook on Telegram.
 
@@ -588,7 +589,7 @@ class Message(models.Model):
             return None
         entities = [types.MessageEntity.from_dict(e) for e in self._entities]  # noqa
         for entity in entities:
-            entity.text = self.text[entity.offset: entity.offset + entity.length]
+            entity.text = self.text[entity.offset : entity.offset + entity.length]
         return entities
 
     @cached_property
@@ -631,7 +632,7 @@ class Message(models.Model):
             types.MessageEntity.from_dict(e) for e in self._caption_entities
         ]  # noqa
         for entity in entities:
-            entity.text = self.text[entity.offset: entity.offset + entity.length]
+            entity.text = self.text[entity.offset : entity.offset + entity.length]
         return entities
 
     @cached_property
@@ -694,12 +695,12 @@ class Message(models.Model):
         return message
 
     def edit(
-            self,
-            text: str,
-            parse_mode: str = None,
-            entities: List[types.MessageEntity] = None,
-            disable_web_page_preview: bool = None,
-            reply_markup: types.InlineKeyboardMarkup = None,
+        self,
+        text: str,
+        parse_mode: str = None,
+        entities: List[types.MessageEntity] = None,
+        disable_web_page_preview: bool = None,
+        reply_markup: types.InlineKeyboardMarkup = None,
     ):
 
         api = self.bot.api

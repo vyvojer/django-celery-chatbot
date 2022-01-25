@@ -1,0 +1,4 @@
+[tool.black]
+line-length = 88
+extend-exclude = 'migrations.*\.py'
+include = '[tests|django_chatbot].*\.py'

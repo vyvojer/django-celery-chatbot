@@ -27,7 +27,7 @@
 import json
 import logging
 
-from django.http import JsonResponse, HttpRequest
+from django.http import HttpRequest, JsonResponse
 from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_exempt
 
@@ -39,7 +39,7 @@ log = logging.getLogger(__name__)
 @csrf_exempt
 @never_cache
 def webhook(request: HttpRequest, token_slug) -> JsonResponse:
-    """ Telegram webhook.
+    """Telegram webhook.
 
     This view asynchronously calls dispatch task that handles incoming
     telegram updates.

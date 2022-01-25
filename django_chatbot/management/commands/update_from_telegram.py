@@ -25,7 +25,7 @@
 from django.core.management import BaseCommand
 
 from django_chatbot.models import Bot
-from telegram.api import TelegramError
+from django_chatbot.telegram.api import TelegramError
 
 
 class Command(BaseCommand):
@@ -44,4 +44,6 @@ class Command(BaseCommand):
                 print(f"Exception during updating bot webhook info.\n{error}")
                 continue
             else:
-                print(f"Bot webhook info was updated from telegram for {bot.name}.") # noqa
+                print(
+                    f"Bot webhook info was updated from telegram for {bot.name}."
+                )  # noqa

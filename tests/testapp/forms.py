@@ -16,11 +16,11 @@ import logging
 from dataclasses import dataclass
 
 from django.core.exceptions import ValidationError
+from testapp.models import Note
 
 from django_chatbot.forms import CharField, Field, Form, IntegerField
 from django_chatbot.models import Update
 from django_chatbot.telegram.types import InlineKeyboardButton
-from testapp.models import Note
 
 log = logging.getLogger(__name__)
 

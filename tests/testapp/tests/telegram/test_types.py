@@ -5,27 +5,32 @@ from unittest import TestCase
 
 from django.utils import timezone
 
-from django_chatbot.telegram.types import CallbackQuery, Chat, Message, \
-    TelegramType, Update, \
-    User
+from django_chatbot.telegram.types import (
+    CallbackQuery,
+    Chat,
+    Message,
+    TelegramType,
+    Update,
+    User,
+)
 
 
 class TelegramTypeTestCase(TestCase):
     def test_timestamp_to_datetime(self):
         timestamp = 1441645532
         dt = TelegramType.timestamp_to_datetime(timestamp)
-        self.assertEqual(dt, timezone.datetime(
-            2015, 9, 7, 17, 5, 32, tzinfo=timezone.utc))
+        self.assertEqual(
+            dt, timezone.datetime(2015, 9, 7, 17, 5, 32, tzinfo=timezone.utc)
+        )
 
     def test_convert_to_date(self):
         source = {
-            'date': 1441645532,
-            'num': 1,
-            'child': {
-                'edit_date': 1441645532,
-                'num': 1,
-
-            }
+            "date": 1441645532,
+            "num": 1,
+            "child": {
+                "edit_date": 1441645532,
+                "num": 1,
+            },
         }
         converted = TelegramType.convert_date(
             source, TelegramType.timestamp_to_datetime
@@ -33,29 +38,25 @@ class TelegramTypeTestCase(TestCase):
         self.assertEqual(
             converted,
             {
-                'date': timezone.datetime(
-                    2015, 9, 7, 17, 5, 32, tzinfo=timezone.utc),
-                'num': 1,
-                'child': {
-                    'edit_date': timezone.datetime(
-                        2015, 9, 7, 17, 5, 32, tzinfo=timezone.utc),
-                    'num': 1,
-
-                }
-            }
+                "date": timezone.datetime(2015, 9, 7, 17, 5, 32, tzinfo=timezone.utc),
+                "num": 1,
+                "child": {
+                    "edit_date": timezone.datetime(
+                        2015, 9, 7, 17, 5, 32, tzinfo=timezone.utc
+                    ),
+                    "num": 1,
+                },
+            },
         )
 
     def test_convert_to_timestamps(self):
         source = {
-            'date': timezone.datetime(
-                2015, 9, 7, 17, 5, 32, tzinfo=timezone.utc),
-            'num': 1,
-            'child': {
-                'date': timezone.datetime(
-                    2015, 9, 7, 17, 5, 32, tzinfo=timezone.utc),
-                'num': 1,
-
-            }
+            "date": timezone.datetime(2015, 9, 7, 17, 5, 32, tzinfo=timezone.utc),
+            "num": 1,
+            "child": {
+                "date": timezone.datetime(2015, 9, 7, 17, 5, 32, tzinfo=timezone.utc),
+                "num": 1,
+            },
         }
         converted = TelegramType.convert_date(
             source, TelegramType.datetime_to_timestamp
@@ -63,38 +64,35 @@ class TelegramTypeTestCase(TestCase):
         self.assertEqual(
             converted,
             {
-                'date': 1441645532,
-                'num': 1,
-                'child': {
-                    'date': 1441645532,
-                    'num': 1,
-
-                }
-            }
+                "date": 1441645532,
+                "num": 1,
+                "child": {
+                    "date": 1441645532,
+                    "num": 1,
+                },
+            },
         )
 
     def test_convert_froms(self):
         source = {
-            'from': 'name',
-            'num': 1,
-            'child': {
-                'from': 'name',
-                'num': 1,
-
-            }
+            "from": "name",
+            "num": 1,
+            "child": {
+                "from": "name",
+                "num": 1,
+            },
         }
         converted = TelegramType.convert_froms(source)
         self.assertEqual(
             converted,
             {
-                'from_user': 'name',
-                'num': 1,
-                'child': {
-                    'from_user': 'name',
-                    'num': 1,
-
-                }
-            }
+                "from_user": "name",
+                "num": 1,
+                "child": {
+                    "from_user": "name",
+                    "num": 1,
+                },
+            },
         )
 
     def test_from_dict(self):
@@ -107,12 +105,14 @@ class TelegramTypeTestCase(TestCase):
                     {"grandchild_p1": 7, "grandchild_p2": ["e", "f"]},
                 ],
                 "child_p2": 2,
-                "child_p3": [[
-                    {"grandchild_p1": 5, "grandchild_p2": ["a", "b"]},
-                    {"grandchild_p1": 6, "grandchild_p2": ["c", "d"]},
-                    {"grandchild_p1": 7, "grandchild_p2": ["e", "f"]},
-                ]],
-            }
+                "child_p3": [
+                    [
+                        {"grandchild_p1": 5, "grandchild_p2": ["a", "b"]},
+                        {"grandchild_p1": 6, "grandchild_p2": ["c", "d"]},
+                        {"grandchild_p1": 7, "grandchild_p2": ["e", "f"]},
+                    ]
+                ],
+            },
         }
         source = copy.deepcopy(source_data)
 
@@ -145,13 +145,15 @@ class TelegramTypeTestCase(TestCase):
                         GrandChild(7, ["e", "f"]),
                     ],
                     child_p2=2,
-                    child_p3=[[
-                        GrandChild(5, ["a", "b"]),
-                        GrandChild(6, ["c", "d"]),
-                        GrandChild(7, ["e", "f"]),
-                    ]],
-                )
-            )
+                    child_p3=[
+                        [
+                            GrandChild(5, ["a", "b"]),
+                            GrandChild(6, ["c", "d"]),
+                            GrandChild(7, ["e", "f"]),
+                        ]
+                    ],
+                ),
+            ),
         )
         self.assertEqual(source, source_data)
 
@@ -180,7 +182,7 @@ class TelegramTypeTestCase(TestCase):
                     GrandChild(7, ["e", "f"]),
                 ],
                 child_p2=2,
-            )
+            ),
         )
 
         as_dict = parent.to_dict()
@@ -196,8 +198,8 @@ class TelegramTypeTestCase(TestCase):
                         {"grandchild_p1": 7, "grandchild_p2": ["e", "f"]},
                     ],
                     "child_p2": 2,
-                }
-            }
+                },
+            },
         )
 
 
@@ -212,7 +214,7 @@ class UpdateTestCase(TestCase):
                     "id": 1111111,
                     "type": "private",
                     "first_name": "Test Firstname",
-                    "username": "Testusername"
+                    "username": "Testusername",
                 },
                 "message_id": 1365,
                 "from": {
@@ -220,10 +222,10 @@ class UpdateTestCase(TestCase):
                     "id": 1111111,
                     "is_bot": False,
                     "first_name": "Test Firstname",
-                    "username": "Testusername"
+                    "username": "Testusername",
                 },
-                "text": "/start"
-            }
+                "text": "/start",
+            },
         }
 
         update = Update.from_dict(source)
@@ -231,9 +233,7 @@ class UpdateTestCase(TestCase):
 
 
 class UpdateFromDictTestCase(TestCase):
-    """
-
-    """
+    """ """
 
     def test_message_with_text(self):
         source = {
@@ -245,7 +245,7 @@ class UpdateFromDictTestCase(TestCase):
                     "id": 1111111,
                     "type": "private",
                     "first_name": "Test Firstname",
-                    "username": "Testusername"
+                    "username": "Testusername",
                 },
                 "message_id": 1365,
                 "from": {
@@ -253,10 +253,10 @@ class UpdateFromDictTestCase(TestCase):
                     "is_bot": False,
                     "id": 1111111,
                     "first_name": "Test Firstname",
-                    "username": "Testusername"
+                    "username": "Testusername",
                 },
-                "text": "/start"
-            }
+                "text": "/start",
+            },
         }
 
         update = Update.from_dict(source=source)
@@ -269,9 +269,7 @@ class UpdateFromDictTestCase(TestCase):
                 message=Message(
                     message_id=1365,
                     text="/start",
-                    date=timezone.datetime(
-                        2015, 9, 7, 17, 5, 32, tzinfo=timezone.utc
-                    ),
+                    date=timezone.datetime(2015, 9, 7, 17, 5, 32, tzinfo=timezone.utc),
                     chat=Chat(
                         id=1111111,
                         type="private",
@@ -285,9 +283,9 @@ class UpdateFromDictTestCase(TestCase):
                         username="Testusername",
                         first_name="Test Firstname",
                         last_name="Test Lastname",
-                    )
-                )
-            )
+                    ),
+                ),
+            ),
         )
 
     def test_callback_query(self):
@@ -301,11 +299,11 @@ class UpdateFromDictTestCase(TestCase):
                     "is_bot": False,
                     "id": 1111111,
                     "first_name": "Test Firstname",
-                    "username": "Testusername"
+                    "username": "Testusername",
                 },
                 "data": "Data from button callback",
-                "inline_message_id": "1234csdbsk4839"
-            }
+                "inline_message_id": "1234csdbsk4839",
+            },
         }
 
         update = Update.from_dict(source=source)
@@ -326,25 +324,27 @@ class UpdateFromDictTestCase(TestCase):
                         username="Testusername",
                         first_name="Test Firstname",
                         last_name="Test Lastname",
-                    )
-                )
-            )
+                    ),
+                ),
+            ),
         )
 
     def test_edited_channel_post(self):
-        source = {'update_id': 10000,
-                  'edited_channel_post': {
-                      'message_id': 16,
-                      'sender_chat': {'id': -1001,
-                                      'title': 'test_channel',
-                                      'type': 'channel'},
-                      'chat': {'id': -1001,
-                               'title': 'test_channel',
-                               'type': 'channel'},
-                      'date': 1615492954,
-                      'edit_date': 1615493064,
-                      'text': 'post3'
-                  }}
+        source = {
+            "update_id": 10000,
+            "edited_channel_post": {
+                "message_id": 16,
+                "sender_chat": {
+                    "id": -1001,
+                    "title": "test_channel",
+                    "type": "channel",
+                },
+                "chat": {"id": -1001, "title": "test_channel", "type": "channel"},
+                "date": 1615492954,
+                "edit_date": 1615493064,
+                "text": "post3",
+            },
+        }
         update = Update.from_dict(source=source)
 
         self.assertEqual(update.update_id, 10000)
@@ -355,9 +355,7 @@ class UpdateFromDictTestCase(TestCase):
                 edited_channel_post=Message(
                     message_id=16,
                     text="post3",
-                    date=timezone.datetime(
-                        2021, 3, 11, 20, 2, 34, tzinfo=timezone.utc
-                    ),
+                    date=timezone.datetime(2021, 3, 11, 20, 2, 34, tzinfo=timezone.utc),
                     edit_date=timezone.datetime(
                         2021, 3, 11, 20, 4, 24, tzinfo=timezone.utc
                     ),
@@ -371,6 +369,6 @@ class UpdateFromDictTestCase(TestCase):
                         type="channel",
                         title="test_channel",
                     ),
-                )
-            )
+                ),
+            ),
         )

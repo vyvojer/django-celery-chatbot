@@ -22,6 +22,9 @@
 #  THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 # *****************************************************************************
 
+from testapp import callbacks
+from testapp.forms import AddNote, DeleteNoteForm, NotesForm
+
 # *****************************************************************************
 #  MIT License
 #
@@ -35,8 +38,6 @@
 #
 #
 from django_chatbot.handlers import CommandHandler, DefaultHandler
-from testapp import callbacks
-from testapp.forms import AddNote, DeleteNoteForm, NotesForm
 
 handlers = [
     CommandHandler(
@@ -59,9 +60,7 @@ handlers = [
     ),
     CommandHandler(name="count", command="/count", callback=callbacks.count),
     CommandHandler(name="add", command="/add", form_class=AddNote),
-    CommandHandler(
-        name="delete", command="/delete", form_class=DeleteNoteForm
-    ),
+    CommandHandler(name="delete", command="/delete", form_class=DeleteNoteForm),
     CommandHandler(name="notes", command="/notes", form_class=NotesForm),
     DefaultHandler(name="default", callback=callbacks.default),
 ]

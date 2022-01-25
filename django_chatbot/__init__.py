@@ -21,7 +21,3 @@
 #  ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR
 #  THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 # *****************************************************************************
-
-from .celery_app import app as celery_app
-
-__all__ = ('celery_app',)

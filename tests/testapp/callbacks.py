@@ -1,7 +1,8 @@
 import logging
 
-from django_chatbot.models import Update
 from testapp.models import Note
+
+from django_chatbot.models import Update
 
 log = logging.getLogger(__name__)
 
@@ -11,13 +12,15 @@ def default(update: Update):
 
 
 def start(update: Update):
-    update.message.reply("""
+    update.message.reply(
+        """
 Command list:
 /help - help
 /add - add note
 /delete - delete note
 /count - count notes    
-""") # noqa
+"""
+    )
 
 
 def count(update: Update):
