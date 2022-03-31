@@ -179,19 +179,23 @@ class _Binder:
             params = {k: v for k, v in self.params.items() if v is not None}
             response = requests.post(url=self.url, data=params)
             log.debug(
-                "Telegram params=%s response: url=%s, status_code=%s, json=%s",
-                params,
-                response.url,
-                response.status_code,
-                response.json(),
+                "Telegram response",
+                extra={
+                    "params": params,
+                    "response_url": response.url,
+                    "response_status_code": response.status_code,
+                    "response_json": response.json(),
+                },
             )
         else:
             response = requests.get(url=self.url)
             log.debug(
-                "Telegram request response: url=%s, status_code=%s, json=%s",
-                response.url,
-                response.status_code,
-                response.json(),
+                "Telegram response",
+                extra={
+                    "response_url": response.url,
+                    "response_status_code": response.status_code,
+                    "response_json": response.json(),
+                },
             )
         result = self._parse_response(response, self.telegram_type)
         return result

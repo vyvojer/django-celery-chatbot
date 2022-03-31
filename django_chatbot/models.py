@@ -27,8 +27,8 @@
 import logging
 from typing import List, Optional
 
-import jsonpickle
 from django.db import models
+from django.dispatch import Signal
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.functional import cached_property
@@ -38,7 +38,9 @@ from django_chatbot.conf import settings
 from django_chatbot.telegram import types
 from django_chatbot.telegram.api import Api, TelegramError
 
-log = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
+
+telegram_instance = Signal()
 
 
 class Bot(models.Model):
@@ -106,7 +108,7 @@ class Bot(models.Model):
         if not self.test_mode:
             api = Api(token=self.token)
         else:
-            from django_chatbot.tests.test_api import TestApi
+            from django_chatbot.test.test_api import TestApi
 
             api = TestApi(token=self.token)
         return api
@@ -218,7 +220,12 @@ class UserManager(models.Manager):
     def from_telegram(self, telegram_user: types.User):
         defaults = telegram_user.to_dict()
         defaults.pop("id")
-        user, _ = self.update_or_create(user_id=telegram_user.id, defaults=defaults)
+        user, created = self.update_or_create(
+            user_id=telegram_user.id, defaults=defaults
+        )
+
+        telegram_instance.send(sender=self.model, created=created, instance=user)
+
         return user
 
 
@@ -264,9 +271,12 @@ class ChatManager(models.Manager):
         _update_defaults(telegram_chat, defaults, "permissions")
         _update_defaults(telegram_chat, defaults, "location")
         defaults.pop("id")
-        chat, _ = self.update_or_create(
+        chat, created = self.update_or_create(
             chat_id=telegram_chat.id, bot=bot, defaults=defaults
         )
+
+        telegram_instance.send(sender=self.model, created=created, instance=chat)
+
         return chat
 
 
@@ -348,33 +358,44 @@ class FormManager(models.Manager):
     def get_form(self, update: "Update"):
         if message := update.message:
             try:
-                previous = message.get_previous_by_date(
-                    chat_id=message.chat_id, direction=Message.DIRECTION_OUT
-                )
+                previous = message.get_previous_by_date(chat_id=message.chat_id)
             except Message.DoesNotExist:
                 return None
             else:
-                if previous.form:
+                if previous.form and not previous.form.is_finished:
                     return previous.form
         elif callback_query := update.callback_query:
-            if callback_query.message.form:
-                return callback_query.message.form
+            if callback_query.form and not callback_query.form.is_finished:
+                return callback_query.form
+        return None
 
 
 class Form(models.Model):
-    _form = models.TextField()
+    module_name = models.CharField(max_length=255)
+    class_name = models.CharField(max_length=255)
+    current_field = models.CharField(max_length=255)
+    context = models.JSONField(default=dict)
+    is_finished = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    handler = models.CharField(max_length=255)
 
     objects = FormManager()
 
-    @property
-    def form(self):
-        form = jsonpickle.decode(self._form)
-        form.form_keeper = self
-        return form
+    def __str__(self):
+        return f"{self.module_name}.{self.class_name}"
 
-    @form.setter
-    def form(self, value):
-        self._form = jsonpickle.encode(value)
+
+class Field(models.Model):
+    form = models.ForeignKey("django_chatbot.Form", on_delete=models.CASCADE)
+    name = models.CharField(max_length=255)
+    value = models.TextField(blank=True, null=True)
+    is_valid = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.name}"
 
 
 class MessageManager(models.Manager):
@@ -439,6 +460,17 @@ class MessageManager(models.Manager):
         message, created = self.update_or_create(
             message_id=telegram_message.message_id, defaults=defaults
         )
+
+        telegram_instance.send(sender=self.model, created=created, instance=message)
+
+        logger.debug(
+            "Message record created/updated",
+            extra={
+                "message_id": telegram_message.message_id,
+                "message_created": created,
+                "defaults": defaults,
+            },
+        )
         if created and telegram_message.new_chat_members:
             members = [
                 User.objects.from_telegram(telegram_user)
@@ -476,7 +508,11 @@ class Message(models.Model):
     date = models.DateTimeField()
     chat = models.ForeignKey(Chat, on_delete=models.CASCADE, related_name="messages")
     from_user = models.ForeignKey(
-        User, null=True, blank=True, on_delete=models.SET_NULL, related_name="messages"
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="messages",
     )
     sender_chat = models.ForeignKey(
         Chat, null=True, blank=True, on_delete=models.SET_NULL
@@ -721,6 +757,10 @@ class Message(models.Model):
         )
         return message
 
+    def set_form(self, form: Form):
+        self.form = form
+        self.save()
+
     def edit_reply_markup(self, reply_markup: types.InlineKeyboardMarkup):
         api = self.bot.api
         telegram_message = api.edit_message_reply_markup(
@@ -758,12 +798,17 @@ class CallbackQueryManager(models.Manager):
             message = Message.objects.from_telegram(
                 bot=bot,
                 telegram_message=telegram_callback_query.message,
-                direction=Message.DIRECTION_IN,
+                direction=Message.DIRECTION_OUT,
             )
             defaults["message"] = message
-        callback_query, _ = self.update_or_create(
+        callback_query, created = self.update_or_create(
             callback_query_id=telegram_callback_query.id, defaults=defaults
         )
+
+        telegram_instance.send(
+            sender=self.model, created=created, instance=callback_query
+        )
+
         return callback_query
 
 
@@ -793,6 +838,31 @@ class CallbackQuery(models.Model):
     @property
     def text(self):
         return self.data
+
+    def edit(
+        self,
+        text: str,
+        parse_mode: str = None,
+        entities: List[types.MessageEntity] = None,
+        disable_web_page_preview: bool = None,
+        reply_markup: types.InlineKeyboardMarkup = None,
+    ):
+        """Edit according message."""
+        self.message.edit(
+            text=text,
+            parse_mode=parse_mode,
+            entities=entities,
+            disable_web_page_preview=disable_web_page_preview,
+            reply_markup=reply_markup,
+        )
+
+    @property
+    def form(self):
+        return self.message.form
+
+    def set_form(self, form: Form):
+        self.message.form = form
+        self.message.save()
 
 
 class UpdateManager(models.Manager):
@@ -844,9 +914,12 @@ class UpdateManager(models.Manager):
                 bot, telegram_callback_query
             )
         defaults["type"] = self._message_type(telegram_update)
-        update, _ = self.update_or_create(
+        update, created = self.update_or_create(
             update_id=telegram_update.update_id, defaults=defaults
         )
+
+        telegram_instance.send(sender=self.model, created=created, instance=update)
+
         return update
 
 
@@ -863,6 +936,7 @@ class Update(models.Model):
         (TYPE_EDITED_MESSAGE, "Edited message"),
         (TYPE_CHANNEL_POST, "Channel post"),
         (TYPE_EDITED_CHANNEL_POST, "Edited channel post"),
+        (TYPE_CALLBACK_QUERY, "Callback query"),
     )
 
     bot = models.ForeignKey(Bot, on_delete=models.CASCADE)
@@ -898,6 +972,11 @@ class Update(models.Model):
             return self.message
         elif self.type == self.TYPE_CALLBACK_QUERY:
             return self.callback_query
+
+    def set_handler(self, handler: str):
+        """Set the handler for this update."""
+        self.handler = handler
+        self.save()
 
 
 def _update_defaults(telegram_object: object, defaults: dict, attr: str):

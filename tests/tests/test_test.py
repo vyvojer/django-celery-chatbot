@@ -29,11 +29,10 @@ from factories.factories import BotFactory, ChatFactory, UpdateFactory
 
 from django_chatbot.models import Bot, CallbackQuery, Chat, Message, Update, User
 from django_chatbot.telegram import types
-from django_chatbot.tests.tests import START_USER_ID, ClientResponse, ClientUser
-from django_chatbot.tests.tests import TestCase as ChatbotTestCase
+from django_chatbot.test.test import START_USER_ID, ClientResponse, ClientUser
 
 
-@patch("django_chatbot.tests.tests.Dispatcher")
+@patch("django_chatbot.test.test.Dispatcher")
 class ClientUserTestCase(TestCase):
     def setUp(self) -> None:
         self.bot = Bot.objects.create(
@@ -167,7 +166,7 @@ class ClientUserTestCase(TestCase):
             transform=lambda x: x,
         )
 
-    @patch("django_chatbot.tests.tests.timezone.now")
+    @patch("django_chatbot.test.test.timezone.now")
     @patch.object(ClientUser, "_next_message_id")
     @patch.object(ClientUser, "_next_update_id")
     def test_send_message(
@@ -204,7 +203,7 @@ class ClientUserTestCase(TestCase):
             update_data=update_data
         )
 
-    @patch("django_chatbot.tests.tests.timezone.now")
+    @patch("django_chatbot.test.test.timezone.now")
     @patch.object(ClientUser, "_next_message_id")
     @patch.object(ClientUser, "_next_update_id")
     def test_send_message__with_commands(
@@ -256,7 +255,7 @@ class ClientUserTestCase(TestCase):
         ]
         self.assertEqual(expected_entities, entities)
 
-    @patch("django_chatbot.tests.tests.timezone.now")
+    @patch("django_chatbot.test.test.timezone.now")
     @patch.object(ClientUser, "_next_message_id")
     @patch.object(ClientUser, "_next_update_id")
     def test_send_callback_query(
@@ -309,7 +308,7 @@ class ClientUserTestCase(TestCase):
         update_data = update.to_dict(date_as_timestamp=True)
         test_user.dispatcher.dispatch.assert_called_with(update_data=update_data)
 
-    @patch("django_chatbot.tests.tests.timezone.now")
+    @patch("django_chatbot.test.test.timezone.now")
     @patch.object(ClientUser, "_next_message_id")
     @patch.object(ClientUser, "_next_update_id")
     def test_send_callback_query_default_message(
@@ -389,8 +388,8 @@ class ClientResponseTest(TestCase):
             ],
         )
 
-    def test_text(self):
-        update = UpdateFactory(bot=self.bot, message__text="text")
+    def test_text_of_message(self):
+        update = UpdateFactory(bot=self.bot)
 
         changed_before = []
         changed_after = [
@@ -400,22 +399,162 @@ class ClientResponseTest(TestCase):
 
         client_response = ClientResponse(self.bot, changed_before, changed_after)
 
-        self.assertEqual(client_response.text, "text")
+        self.assertEqual(client_response.text, update.message.text)
 
-
-class TestCaseTest(ChatbotTestCase):
-    def test_changed_is_emtpy_when_no_changes(self):
-        self.assertEqual(self.client._changed, [])
-
-    def test_changed_add_new_telegram_object(self):
-        update = UpdateFactory()
-        message = update.message
-
-        self.assertIn(
-            {"model": "Message", "instance": message, "created": True},
-            self.client._changed,
+    def test_text_of_callback_query(self):
+        update = UpdateFactory(
+            bot=self.bot,
+            type="callback_query",
         )
-        self.assertIn(
+
+        changed_before = []
+        changed_after = [
             {"model": "Update", "instance": update, "created": True},
-            self.client._changed,
+            {
+                "model": "CallbackQuery",
+                "instance": update.callback_query,
+                "created": True,
+            },
+        ]
+
+        client_response = ClientResponse(self.bot, changed_before, changed_after)
+
+        self.assertEqual(client_response.text, update.callback_query.data)
+
+    def test_messages(self):
+        update_1 = UpdateFactory(bot=self.bot, type="message")
+        update_2 = UpdateFactory(bot=self.bot, type="message")
+        update_3 = UpdateFactory(bot=self.bot, type="callback_query")
+        update_4 = UpdateFactory(bot=self.bot, type="callback_query")
+        update_5 = UpdateFactory(bot=self.bot, type="message")
+
+        changed_before = []
+        changed_after = [
+            {"model": "Update", "instance": update_1, "created": True},
+            {"model": "Message", "instance": update_1.message, "created": True},
+            {"model": "Update", "instance": update_2, "created": True},
+            {"model": "Message", "instance": update_2.message, "created": True},
+            {"model": "Update", "instance": update_3, "created": True},
+            {
+                "model": "CallbackQuery",
+                "instance": update_3.callback_query,
+                "created": True,
+            },
+            {"model": "Update", "instance": update_4, "created": True},
+            {
+                "model": "CallbackQuery",
+                "instance": update_4.callback_query,
+                "created": True,
+            },
+            {"model": "Update", "instance": update_5, "created": True},
+            {"model": "Message", "instance": update_5.message, "created": True},
+        ]
+
+        client_response = ClientResponse(self.bot, changed_before, changed_after)
+
+        self.assertEqual(
+            client_response.messages,
+            [update_1.message, update_2.message, update_5.message],
         )
+
+    def test_message(self):
+        update_1 = UpdateFactory(bot=self.bot, type="message")
+        update_2 = UpdateFactory(bot=self.bot, type="message")
+        update_3 = UpdateFactory(bot=self.bot, type="callback_query")
+        update_4 = UpdateFactory(bot=self.bot, type="callback_query")
+        update_5 = UpdateFactory(bot=self.bot, type="message")
+
+        changed_before = []
+        changed_after = [
+            {"model": "Update", "instance": update_1, "created": True},
+            {"model": "Message", "instance": update_1.message, "created": True},
+            {"model": "Update", "instance": update_2, "created": True},
+            {"model": "Message", "instance": update_2.message, "created": True},
+            {"model": "Update", "instance": update_3, "created": True},
+            {
+                "model": "CallbackQuery",
+                "instance": update_3.callback_query,
+                "created": True,
+            },
+            {"model": "Update", "instance": update_4, "created": True},
+            {
+                "model": "CallbackQuery",
+                "instance": update_4.callback_query,
+                "created": True,
+            },
+            {"model": "Update", "instance": update_5, "created": True},
+            {"model": "Message", "instance": update_5.message, "created": True},
+        ]
+
+        client_response = ClientResponse(self.bot, changed_before, changed_after)
+
+        self.assertEqual(client_response.message, update_5.message)
+
+    def test_callback_queries(self):
+        update_1 = UpdateFactory(bot=self.bot, type="message")
+        update_2 = UpdateFactory(bot=self.bot, type="message")
+        update_3 = UpdateFactory(bot=self.bot, type="callback_query")
+        update_4 = UpdateFactory(bot=self.bot, type="callback_query")
+        update_5 = UpdateFactory(bot=self.bot, type="message")
+
+        changed_before = []
+        changed_after = [
+            {"model": "Update", "instance": update_1, "created": True},
+            {"model": "Message", "instance": update_1.message, "created": True},
+            {"model": "Update", "instance": update_2, "created": True},
+            {"model": "Message", "instance": update_2.message, "created": True},
+            {"model": "Update", "instance": update_3, "created": True},
+            {
+                "model": "CallbackQuery",
+                "instance": update_3.callback_query,
+                "created": True,
+            },
+            {"model": "Update", "instance": update_4, "created": True},
+            {
+                "model": "CallbackQuery",
+                "instance": update_4.callback_query,
+                "created": True,
+            },
+            {"model": "Update", "instance": update_5, "created": True},
+            {"model": "Message", "instance": update_5.message, "created": True},
+        ]
+
+        client_response = ClientResponse(self.bot, changed_before, changed_after)
+
+        self.assertEqual(
+            client_response.callback_queries,
+            [update_3.callback_query, update_4.callback_query],
+        )
+
+    def test_callback_query(self):
+        update_1 = UpdateFactory(bot=self.bot, type="message")
+        update_2 = UpdateFactory(bot=self.bot, type="message")
+        update_3 = UpdateFactory(bot=self.bot, type="callback_query")
+        update_4 = UpdateFactory(bot=self.bot, type="callback_query")
+        update_5 = UpdateFactory(bot=self.bot, type="message")
+
+        changed_before = []
+        changed_after = [
+            {"model": "Update", "instance": update_1, "created": True},
+            {"model": "Message", "instance": update_1.message, "created": True},
+            {"model": "Update", "instance": update_2, "created": True},
+            {"model": "Message", "instance": update_2.message, "created": True},
+            {"model": "Update", "instance": update_3, "created": True},
+            {
+                "model": "CallbackQuery",
+                "instance": update_3.callback_query,
+                "created": True,
+            },
+            {"model": "Update", "instance": update_4, "created": True},
+            {
+                "model": "CallbackQuery",
+                "instance": update_4.callback_query,
+                "created": True,
+            },
+            {"model": "Update", "instance": update_5, "created": True},
+            {"model": "Message", "instance": update_5.message, "created": True},
+        ]
+
+        client_response = ClientResponse(self.bot, changed_before, changed_after)
+
+        self.assertEqual(client_response.callback_query, update_4.callback_query)

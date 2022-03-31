@@ -36,8 +36,8 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "django_chatbot",
-    "testproject",
-    "testapp",
+    "dummybot",
+    "dummyfatherbot",
 ]
 
 MIDDLEWARE = [
@@ -131,14 +131,14 @@ DJANGO_CHATBOT = {
     "WEBHOOK_DOMAIN": os.environ["CHATBOT_WEBHOOK_DOMAIN"],
     "BOTS": [
         {
-            "NAME": os.environ["NOTES_BOT_NAME"],
-            "TOKEN": os.environ["NOTES_BOT_TOKEN"],
-            "ROOT_HANDLERCONF": "testapp.handlers",
-            "TEST_NAME": "notes",
+            "NAME": os.environ.get("DUMMY_FATHER_BOT_NAME", "@dummy_father_bot"),
+            "TOKEN": os.environ.get("DUMMY_FATHER_BOT_TOKEN", "dummy_father_bot_token"),
+            "ROOT_HANDLERCONF": "dummyfatherbot.handlers",
+            "TEST_NAME": "dummy_father",
         },
         {
-            "NAME": os.environ["DUMMY_BOT_NAME"],
-            "TOKEN": os.environ["DUMMY_BOT_TOKEN"],
+            "NAME": os.environ.get("DUMMY_BOT_NAME", "@dummy_bot"),
+            "TOKEN": os.environ.get("DUMMY_BOT_TOKEN"),
             "ROOT_HANDLERCONF": "dummybot.handlers",
             "TEST_NAME": "dummy",
         },
@@ -179,23 +179,7 @@ LOGGING = {
             "level": "INFO",
             "propagate": False,
         },
-        "common": {
-            "handlers": ["console"],
-            "level": LOG_LEVEL,
-        },
-        "ipharm": {
-            "handlers": ["console"],
-            "level": LOG_LEVEL,
-        },
-        "references": {
-            "handlers": ["console"],
-            "level": LOG_LEVEL,
-        },
-        "updates": {
-            "handlers": ["console"],
-            "level": LOG_LEVEL,
-        },
-        "users": {
+        "django_chatbot": {
             "handlers": ["console"],
             "level": LOG_LEVEL,
         },

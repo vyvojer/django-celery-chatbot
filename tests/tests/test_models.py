@@ -1,10 +1,8 @@
 from unittest.mock import Mock, patch
 
-import jsonpickle
 from django.test import TestCase
 from django.utils import timezone
 
-from django_chatbot import forms
 from django_chatbot.models import (
     Bot,
     CallbackQuery,
@@ -589,36 +587,6 @@ class FormManagerTestCase(TestCase):
 
         form = Form.objects.get_form(update=update)
         self.assertEqual(form, self.form)
-
-
-class FormTestCase(TestCase):
-    class TestForm(forms.Form):
-        def get_fields(self):
-            return []
-
-        def on_complete(self, update: Update, cleaned_data: dict):
-            pass
-
-    def setUp(self) -> None:
-        self.bot = Bot.objects.create(name="bot", token="token")
-
-    def test_form_getter(self):
-        form = self.TestForm()
-        form.completed = True
-
-        form_keeper = Form(_form=jsonpickle.encode(form))
-
-        form.form_keeper = form_keeper
-        self.assertEqual(form_keeper.form, form)
-
-    def test_form_setter(self):
-        form = self.TestForm()
-        form.completed = True
-
-        form_keeper = Form()
-        form_keeper.form = form
-
-        self.assertEqual(form_keeper._form, jsonpickle.encode(form))
 
 
 class MessageManagerTestCase(TestCase):

@@ -2,7 +2,6 @@ from unittest.mock import Mock, call, patch
 
 from django.test import TestCase
 
-from django_chatbot.forms import Form
 from django_chatbot.models import Bot
 from django_chatbot.services.dispatcher import (
     Dispatcher,
@@ -26,7 +25,7 @@ class LoadBotHandlersTestCase(TestCase):
         ]
 
     def test_load_bot_handlers(self):
-        bot_handlers = _load_bot_handlers("testapp.tests.services.test_dispatcher")
+        bot_handlers = _load_bot_handlers("tests.services.test_dispatcher")
 
         self.assertEqual(bot_handlers, handlers)
 
@@ -116,6 +115,7 @@ class DispatcherTestCase(TestCase):
         handler_2.handle_update.assert_called_with(update=update)
         handler_3.handle_update.assert_not_called()
 
+    @patch("django_chatbot.services.dispatcher.FormRepository")
     @patch("django_chatbot.services.dispatcher.Form.objects.get_form")
     @patch("django_chatbot.services.dispatcher.Update.objects.from_telegram")
     @patch("django_chatbot.services.dispatcher.TelegramUpdate.from_dict")
@@ -124,15 +124,15 @@ class DispatcherTestCase(TestCase):
         mocked_from_dict: Mock,
         mocked_from_telegram: Mock,
         mocked_get_form: Mock,
+        mocked_form_repository: Mock,
         mocked_load_handlers: Mock,
     ):
         update = Mock()
         telegram_update = Mock()
         mocked_from_telegram.return_value = update
         mocked_from_dict.return_value = telegram_update
-        form = Mock()
-        form_keeper = Mock(form=form)
-        mocked_get_form.return_value = form_keeper
+        form_model = Mock()
+        mocked_get_form.return_value = form_model
         handler = Mock(**{"match.return_value": True}, suppress_form=False)
         mocked_load_handlers.return_value = {"token2": [handler]}
 
@@ -141,8 +141,9 @@ class DispatcherTestCase(TestCase):
         dispatcher.dispatch(update_data={})
 
         handler.match.assert_not_called()
-        form.update.assert_called_with(update=update)
+        mocked_form_repository.assert_called_with(update=update, form_model=form_model)
 
+    @patch("django_chatbot.services.dispatcher.FormRepository")
     @patch("django_chatbot.services.dispatcher.Form.objects.get_form")
     @patch("django_chatbot.services.dispatcher.Update.objects.from_telegram")
     @patch("django_chatbot.services.dispatcher.TelegramUpdate.from_dict")
@@ -151,14 +152,15 @@ class DispatcherTestCase(TestCase):
         mocked_from_dict: Mock,
         mocked_from_telegram: Mock,
         mocked_get_form: Mock,
+        mocked_form_repository: Mock,
         mocked_load_handlers: Mock,
     ):
         update = Mock()
         telegram_update = Mock()
         mocked_from_telegram.return_value = update
         mocked_from_dict.return_value = telegram_update
-        form_keeper = Mock(spec=Form)
-        mocked_get_form.return_value = form_keeper
+        form_model = Mock()
+        mocked_get_form.return_value = form_model
         handler = Mock(**{"match.return_value": True}, suppress_form=True)
         mocked_load_handlers.return_value = {"token2": [handler]}
 
@@ -167,4 +169,4 @@ class DispatcherTestCase(TestCase):
         dispatcher.dispatch(update_data={})
 
         handler.match.assert_called_with(update=update)
-        form_keeper.update.assert_not_called()
+        mocked_form_repository.assert_not_called()

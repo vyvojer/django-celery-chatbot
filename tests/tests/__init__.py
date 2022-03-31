@@ -1,7 +1,7 @@
 # *****************************************************************************
 #  MIT License
 #
-#  Copyright (c) 2020 Alexey Londkevich <londkevich@gmail.com>
+#  Copyright (c) 2022 Alexey Londkevich <londkevich@gmail.com>
 #
 #  Permission is hereby granted, free of charge, to any person obtaining a copy
 #  of this software and associated documentation files (the "Software"),
@@ -21,13 +21,3 @@
 #  ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR
 #  THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 # *****************************************************************************
-
-from django.db import models
-
-from django_chatbot.models import User as TelegramUser
-
-
-class Note(models.Model):
-    user = models.ForeignKey(TelegramUser, on_delete=models.CASCADE)
-    title = models.CharField(max_length=100, default="")
-    text = models.TextField(default="")

@@ -1,7 +1,7 @@
 # *****************************************************************************
 #  MIT License
 #
-#  Copyright (c) 2020 Alexey Londkevich <londkevich@gmail.com>
+#  Copyright (c) 2022 Alexey Londkevich <londkevich@gmail.com>
 #
 #  Permission is hereby granted, free of charge, to any person obtaining a copy
 #  of this software and associated documentation files (the "Software"),
@@ -21,3 +21,34 @@
 #  ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR
 #  THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 # *****************************************************************************
+from dummyfatherbot import callbacks, forms
+
+from django_chatbot.handlers import CommandHandler, DefaultHandler
+
+handlers = [
+    CommandHandler(
+        name="start",
+        command="/start",
+        callback=callbacks.help,
+        suppress_form=True,
+    ),
+    CommandHandler(
+        name="help",
+        command="/help",
+        callback=callbacks.help,
+        suppress_form=True,
+    ),
+    CommandHandler(
+        name="newbot",
+        command="/newbot",
+        form_class=forms.NewBotForm,
+        suppress_form=True,
+    ),
+    CommandHandler(
+        name="mybots",
+        command="/mybots",
+        form_class=forms.MyBotsForm,
+        suppress_form=True,
+    ),
+    DefaultHandler(name="default", callback=callbacks.default),
+]

@@ -30,7 +30,7 @@ from typing import Callable, Optional, Type
 
 from celery import group
 
-from django_chatbot.forms import Form
+from django_chatbot.forms import Form, FormRepository
 from django_chatbot.models import Update
 
 log = logging.getLogger(__name__)
@@ -83,18 +83,15 @@ class Handler(ABC):
 
         Should be called only if the handler matches the update.
         """
-        update.handler = self.name
-        update.save()
+        update.set_handler(self.name)
         if self.callback:
             self.callback(update)
         elif self.async_callback:
             group(self.async_callback.signature(update.id)).delay()
         elif self.form_class:
-            if self.form:
-                form = self.form
-            else:
-                form = self.form_class()
-            form.update(update)
+            FormRepository(
+                update=update, form_class=self.form_class, handler=self
+            ).handle_update()
 
 
 class DefaultHandler(Handler):
