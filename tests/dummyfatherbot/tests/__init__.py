@@ -1,7 +1,7 @@
 # *****************************************************************************
 #  MIT License
 #
-#  Copyright (c) 2020 Alexey Londkevich <londkevich@gmail.com>
+#  Copyright (c) 2022 Alexey Londkevich <londkevich@gmail.com>
 #
 #  Permission is hereby granted, free of charge, to any person obtaining a copy
 #  of this software and associated documentation files (the "Software"),
@@ -21,44 +21,3 @@
 #  ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR
 #  THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 # *****************************************************************************
-
-""" This module contains views."""
-
-import json
-import logging
-
-from django.http import HttpRequest, JsonResponse
-from django.views.decorators.cache import never_cache
-from django.views.decorators.csrf import csrf_exempt
-
-from django_chatbot.tasks import dispatch
-
-log = logging.getLogger(__name__)
-
-
-@csrf_exempt
-@never_cache
-def webhook(request: HttpRequest, token_slug) -> JsonResponse:
-    """Telegram webhook.
-
-    This view asynchronously calls dispatch task that handles incoming
-    telegram updates.
-
-    Args:
-        request: Telegram update request.
-        token_slug: Bot token slug.
-
-    Returns:
-        JsonResponse to Telegram.
-
-    """
-    update_data = json.loads(request.body)
-    dispatch.delay(update_data=update_data, token_slug=token_slug)
-    log.debug(
-        "Webhook request",
-        extra={
-            "update_data": update_data,
-            "trancated_token_slug": token_slug[:15],
-        },
-    )
-    return JsonResponse({"ok": "POST request processed"})

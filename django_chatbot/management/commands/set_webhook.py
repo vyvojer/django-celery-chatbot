@@ -29,9 +29,20 @@ from django_chatbot.telegram.api import TelegramError
 
 
 class Command(BaseCommand):
+    help = 'Set webhook for bots. If webhook domain url is not specified, settings "WEBHOOK_DOMAIN" will be used.'  # noqa
+
+    def add_arguments(self, parser):
+        parser.add_argument("-d", "--domain", help="webhook domain url (must be https)")
+
     def handle(self, *args, **options):
         for bot in Bot.objects.all():
             try:
+                if options["domain"]:
+                    bot.set_webhook(domain=options["domain"][0])
+                else:
+                    bot.set_webhook()
+            except TelegramError as e:
+                self.stderr.write(e)
                 bot.set_webhook()
             except TelegramError as error:
                 print(f"Exception during setWebhook \n{error}")

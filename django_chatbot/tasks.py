@@ -50,6 +50,12 @@ def dispatch(self, update_data: dict, token_slug: str):
         token_slug: The bot token slug.
 
     """
-    log.debug("dispatch task update_data=%s token_slug=%s", update_data, token_slug)
+    log.debug(
+        "Dispatching task",
+        extra={
+            "update_data": update_data,
+            "trancated_token_slug": token_slug[:15],
+        },
+    )
     dispatcher = Dispatcher(token_slug=token_slug)
     dispatcher.dispatch(update_data=update_data)

@@ -28,6 +28,16 @@ from django.utils import timezone
 NOW = timezone.now()
 
 
+class UserFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = "django_chatbot.User"
+
+    user_id = factory.Sequence(lambda n: n)
+    first_name = factory.Faker("first_name")
+    last_name = factory.Faker("last_name")
+    username = factory.Faker("user_name")
+
+
 class BotFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = "django_chatbot.Bot"
@@ -63,14 +73,65 @@ class MessageFactory(factory.django.DjangoModelFactory):
     text = factory.Faker("text")
 
 
+class CallbackQueryFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = "django_chatbot.CallbackQuery"
+        django_get_or_create = ("callback_query_id",)
+
+    bot = factory.SubFactory(BotFactory)
+    callback_query_id = factory.Sequence(lambda n: n)
+    from_user = factory.SubFactory(UserFactory)
+    chat_instance = factory.Faker("uuid4")
+    message = factory.SubFactory(MessageFactory)
+    data = factory.Faker("word")
+
+
 class UpdateFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = "django_chatbot.Update"
         django_get_or_create = ("update_id",)
 
     bot = factory.SubFactory(BotFactory)
-    type = factory.Iterator(
-        ["message", "edited_message", "channel_post", "edited_channel_post"]
-    )
+    type = "message"  # one of the "message", "edited_message", "channel_post",
+    # "edited_channel_post", "callback_query"
     update_id = factory.Sequence(lambda n: n)
-    message = factory.SubFactory(MessageFactory)
+
+    @factory.lazy_attribute
+    def message(self):
+        if self.type in [
+            "message",
+            "edited_message",
+            "channel_post",
+            "edited_channel_post",
+        ]:
+            return factory.SubFactory(MessageFactory).get_factory().create()
+        else:
+            return None
+
+    @factory.lazy_attribute
+    def callback_query(self):
+        if self.type == "callback_query":
+            return factory.SubFactory(CallbackQueryFactory).get_factory().create()
+        else:
+            return None
+
+
+class FormFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = "django_chatbot.Form"
+
+    module_name = factory.Sequence(lambda n: f"module_{n}")
+    class_name = factory.Sequence(lambda n: f"class_{n}")
+    current_field = factory.Sequence(lambda n: f"field_{n}")
+    context = {}
+    is_finished = False
+
+
+class FieldFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = "django_chatbot.Field"
+
+    form = factory.SubFactory(FormFactory)
+    name = factory.Sequence(lambda n: f"field_{n}")
+    value = factory.Sequence(lambda n: f"value_{n}")
+    is_valid = False

@@ -25,12 +25,13 @@
 from django.contrib import admin
 from django.db.models import F
 
-from .models import Bot, CallbackQuery, Chat, Form, Message, Update, User
+from . import models
 
 
-@admin.register(Bot)
+@admin.register(models.Bot)
 class BotAdmin(admin.ModelAdmin):
     list_display = [
+        "id",
         "name",
         "update_successful",
         "me_update_datetime",
@@ -38,21 +39,24 @@ class BotAdmin(admin.ModelAdmin):
     ]
 
 
-@admin.register(Chat)
+@admin.register(models.Chat)
 class ChatAdmin(admin.ModelAdmin):
-    list_display = ["bot", "chat_id", "type", "username"]
+    list_display = ["id", "bot", "chat_id", "type", "username"]
 
 
-@admin.register(Message)
+@admin.register(models.Message)
 class MessageAdmin(admin.ModelAdmin):
     list_display = [
         "bot_name",
         "direction",
         "message_id",
+        "form",
         "date",
         "chat",
         "trancated_text",
     ]
+
+    list_filter = ["direction", "chat__bot"]
 
     def get_queryset(self, request):
         query_set = super().get_queryset(request)
@@ -68,7 +72,7 @@ class MessageAdmin(admin.ModelAdmin):
     bot_name.admin_order_field = "bot_name"
 
 
-@admin.register(CallbackQuery)
+@admin.register(models.CallbackQuery)
 class CallbackQueryAdmin(admin.ModelAdmin):
     list_display = [
         "callback_query_id",
@@ -76,7 +80,7 @@ class CallbackQueryAdmin(admin.ModelAdmin):
     ]
 
 
-@admin.register(Update)
+@admin.register(models.Update)
 class UpdateAdmin(admin.ModelAdmin):
     list_display = [
         "bot",
@@ -86,7 +90,7 @@ class UpdateAdmin(admin.ModelAdmin):
     ]
 
 
-@admin.register(User)
+@admin.register(models.User)
 class UserAdmin(admin.ModelAdmin):
     list_display = [
         "user_id",
@@ -94,8 +98,17 @@ class UserAdmin(admin.ModelAdmin):
     ]
 
 
-@admin.register(Form)
+class FieldInline(admin.TabularInline):
+    model = models.Field
+    extra = 0
+
+
+@admin.register(models.Form)
 class FormAdmin(admin.ModelAdmin):
     list_display = [
         "id",
+        "class_name",
+        "module_name",
+        "current_field",
     ]
+    inlines = [FieldInline]

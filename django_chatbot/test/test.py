@@ -21,39 +21,35 @@
 #  ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR
 #  THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 # *****************************************************************************
-
-# *****************************************************************************
-#  MIT License
-#
-#
-#  Permission is hereby granted, free of charge, to any person obtaining a copy
-#  of this software and associated documentation files (the "Software"),
-#  to deal in the Software without restriction, including without limitation
-#  the rights to use, copy, modify, merge, publish, distribute, sublicense,
-#  and/or sell copies of the Software, and to permit persons to whom
-#  the Software is furnished to do so, subject to the following conditions:
-#
-#
 from __future__ import annotations
 
 import logging
 import re
+from functools import cached_property
 from typing import Optional
 
 from django.db.models import QuerySet
 from django.db.models.signals import post_save
 from django.forms import Form
-from django.test import TestCase as DjangoTestCase
+from django.test import TransactionTestCase
 from django.utils import timezone
 
 from django_chatbot.conf import settings
-from django_chatbot.models import Bot, CallbackQuery, Chat, Message, Update, User
+from django_chatbot.models import (
+    Bot,
+    CallbackQuery,
+    Chat,
+    Message,
+    Update,
+    User,
+    telegram_instance,
+)
 from django_chatbot.services.dispatcher import Dispatcher
 from django_chatbot.telegram import types
 
 START_USER_ID = 1000
 
-log = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class MockUserError(Exception):
@@ -239,32 +235,109 @@ class Client:
 
 
 class ClientResponse:
+    UPDATE = "update"
+    NEW = "new"
+
     def __init__(self, bot: Bot, changed_before: list, changed_after: list):
         self.bot = bot
         self.changed = changed_after[len(changed_before) :]
         self.is_successful = len(self.changed) > 0
-        self._messages = self._get_messages()
 
     def __bool__(self):
         return self.is_successful
 
-    def _get_messages(self):
-        messages = [
+    def _get_instances(self, instance_type: str):
+        instances = [
             c["instance"]
-            for c in filter(lambda c: c["model"] in ["Message"], self.changed)
+            for c in filter(
+                lambda c: c["model"] == instance_type,
+                self.changed,
+            )
         ]
-        return messages
+        return instances
+
+    @cached_property
+    def messages(self):
+        return self._get_instances("Message")
+
+    @cached_property
+    def callback_queries(self):
+        return self._get_instances("CallbackQuery")
+
+    @cached_property
+    def updates(self):
+        return self._get_instances("Update")
+
+    @cached_property
+    def message(self):
+        """Return the last updated/created message."""
+        return self.messages[-1] if self.messages else None
+
+    @cached_property
+    def callback_query(self):
+        """Return the last updated/created callback query."""
+        return self.callback_queries[-1] if self.callback_queries else None
+
+    @cached_property
+    def update(self):
+        """Return the last updated/created update."""
+        return self.updates[-1] if self.updates else None
+
+    @cached_property
+    def inline_keyboard(self):
+        if hasattr(self.message, "reply_markup"):
+            return self.message.reply_markup.inline_keyboard
+
+    @cached_property
+    def inline_keyboard_labels(self):
+        labels = []
+        if hasattr(self.message, "reply_markup"):
+            for row in self.message.reply_markup.inline_keyboard:
+                for button in row:
+                    labels.append(button.text)
+        return labels
 
     @property
+    def operation(self):
+        """
+        Return the last operation that was performed.
+
+        Possible values are:
+        - ClientResponse.UPDATE
+        - ClientResponse.NEW
+        """
+        try:
+            last_created = [
+                c["created"]
+                for c in filter(
+                    lambda c: c["model"] == "Message",
+                    self.changed,
+                )
+            ][-1]
+        except IndexError:
+            return None
+        else:
+            return ClientResponse.NEW if last_created else ClientResponse.UPDATE
+
+    @cached_property
     def text(self):
-        if self.is_successful and self._messages:
-            return self._messages[-1].text
+        if self.message:
+            return self.message.text
+        if self.callback_query:
+            return self.callback_query.data
 
     def __contains__(self, item):
         return item in self.text
 
+    def __str__(self):
+        if self.text is not None:
+            return f"Response text: {self.text}"
+        else:
+            return "Response is unsuccessful"
 
-class TestCase(DjangoTestCase):
+
+class TestCase(TransactionTestCase):
+    reset_sequences = True
     bot_name = None
 
     def get_bot(self) -> Bot:
@@ -297,7 +370,7 @@ class TestCase(DjangoTestCase):
         self.client = Client(self.user)
 
         def on_changed(sender, instance, created, **kwargs):
-            if sender in [Update, Message]:
+            if sender in [Update, Message, CallbackQuery]:
                 changes = {
                     "created": created,
                     "instance": instance,
@@ -305,11 +378,13 @@ class TestCase(DjangoTestCase):
                 }
                 self.client._changed.append(changes)
 
-        post_save.connect(on_changed, weak=False)
+        telegram_instance.connect(on_changed, weak=False)
 
     def _post_teardown(self):
         post_save.disconnect(dispatch_uid="django_chatbot_test_case")
         super()._post_teardown()
 
-    def assertContains(self, response, text, *args, **kwargs):
-        return text in response
+    def assertContains(self, response, text, msg=""):
+        return self.assertTrue(
+            text in response.text, msg + f"Couldn't find '{text}' in `{response.text}`"
+        )

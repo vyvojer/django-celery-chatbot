@@ -21,4 +21,6 @@
 #  ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR
 #  THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 # *****************************************************************************
-from .tests import TestCase  # noqa
+from .fields import *  # noqa: F403, F401
+from .formrepository import *  # noqa: F403, F401
+from .forms import *  # noqa: F403, F401
