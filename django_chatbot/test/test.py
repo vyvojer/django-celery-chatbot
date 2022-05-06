@@ -35,16 +35,9 @@ from django.test import TransactionTestCase
 from django.utils import timezone
 
 from django_chatbot.conf import settings
-from django_chatbot.models import (
-    Bot,
-    CallbackQuery,
-    Chat,
-    Message,
-    Update,
-    User,
-    telegram_instance,
-)
-from django_chatbot.services.dispatcher import Dispatcher
+from django_chatbot.dispatcher import Dispatcher
+from django_chatbot.managers import telegram_instance
+from django_chatbot.models import Bot, CallbackQuery, Chat, Message, Update, User
 from django_chatbot.telegram import types
 
 START_USER_ID = 1000

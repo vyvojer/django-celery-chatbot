@@ -2,12 +2,8 @@ from unittest.mock import Mock, call, patch
 
 from django.test import TestCase
 
+from django_chatbot.dispatcher import Dispatcher, _load_bot_handlers, load_handlers
 from django_chatbot.models import Bot
-from django_chatbot.services.dispatcher import (
-    Dispatcher,
-    _load_bot_handlers,
-    load_handlers,
-)
 
 handlers = [
     "handler1",
@@ -31,7 +27,7 @@ class LoadBotHandlersTestCase(TestCase):
 
 
 class LoadHandlersTestCase(TestCase):
-    @patch("django_chatbot.services.dispatcher._load_bot_handlers")
+    @patch("django_chatbot.dispatcher._load_bot_handlers")
     def test_load_handlers(self, mocked_load_bot_handlers: Mock):
         Bot.objects.create(name="bot1", token="token1", root_handlerconf="module1")
         Bot.objects.create(name="bot2", token="token2", root_handlerconf="module2")
@@ -58,7 +54,7 @@ class LoadHandlersTestCase(TestCase):
         )
 
 
-@patch("django_chatbot.services.dispatcher.load_handlers")
+@patch("django_chatbot.dispatcher.load_handlers")
 class DispatcherTestCase(TestCase):
     def setUp(self) -> None:
         Bot.objects.create(name="bot1", token="token1")
@@ -68,8 +64,8 @@ class DispatcherTestCase(TestCase):
 
         self.token_slug = "token2"
 
-    @patch("django_chatbot.services.dispatcher.Update.objects.from_telegram")
-    @patch("django_chatbot.services.dispatcher.TelegramUpdate.from_dict")
+    @patch("django_chatbot.dispatcher.Update.objects.from_telegram")
+    @patch("django_chatbot.dispatcher.TelegramUpdate.from_dict")
     def test_init__set_attributes(
         self,
         mocked_from_dict: Mock,
@@ -85,8 +81,8 @@ class DispatcherTestCase(TestCase):
 
         self.assertEqual(dispatcher.bot, self.bot)
 
-    @patch("django_chatbot.services.dispatcher.Update.objects.from_telegram")
-    @patch("django_chatbot.services.dispatcher.TelegramUpdate.from_dict")
+    @patch("django_chatbot.dispatcher.Update.objects.from_telegram")
+    @patch("django_chatbot.dispatcher.TelegramUpdate.from_dict")
     def test_dispatch(
         self,
         mocked_from_dict: Mock,
@@ -115,10 +111,10 @@ class DispatcherTestCase(TestCase):
         handler_2.handle_update.assert_called_with(update=update)
         handler_3.handle_update.assert_not_called()
 
-    @patch("django_chatbot.services.dispatcher.FormRepository")
-    @patch("django_chatbot.services.dispatcher.Form.objects.get_form")
-    @patch("django_chatbot.services.dispatcher.Update.objects.from_telegram")
-    @patch("django_chatbot.services.dispatcher.TelegramUpdate.from_dict")
+    @patch("django_chatbot.dispatcher.FormRepository")
+    @patch("django_chatbot.dispatcher.Form.objects.get_form")
+    @patch("django_chatbot.dispatcher.Update.objects.from_telegram")
+    @patch("django_chatbot.dispatcher.TelegramUpdate.from_dict")
     def test_casual_handler_have_does_not_take_precedence_over_form(
         self,
         mocked_from_dict: Mock,
@@ -143,10 +139,10 @@ class DispatcherTestCase(TestCase):
         handler.match.assert_not_called()
         mocked_form_repository.assert_called_with(update=update, form_model=form_model)
 
-    @patch("django_chatbot.services.dispatcher.FormRepository")
-    @patch("django_chatbot.services.dispatcher.Form.objects.get_form")
-    @patch("django_chatbot.services.dispatcher.Update.objects.from_telegram")
-    @patch("django_chatbot.services.dispatcher.TelegramUpdate.from_dict")
+    @patch("django_chatbot.dispatcher.FormRepository")
+    @patch("django_chatbot.dispatcher.Form.objects.get_form")
+    @patch("django_chatbot.dispatcher.Update.objects.from_telegram")
+    @patch("django_chatbot.dispatcher.TelegramUpdate.from_dict")
     def test_handler_with_suppress_form_flag_takes_precedence_over_form(
         self,
         mocked_from_dict: Mock,

@@ -124,6 +124,12 @@ REDIS_HOST = os.environ["REDIS_HOST"]
 REDIS_PORT = os.environ["REDIS_PORT"]
 CELERY_BROKER_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}/0"
 
+CELERY_BEAT_SCHEDULE = {
+    "pull_updates": {
+        "task": "django_chatbot.tasks.pull_updates",
+        "schedule": 2,
+    },
+}
 
 # django-chatbot
 

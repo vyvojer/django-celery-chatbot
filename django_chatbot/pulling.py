@@ -21,54 +21,35 @@
 #  ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR
 #  THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 # *****************************************************************************
-from collections.abc import MutableMapping
+import logging
 
-from django.conf import settings as user_settings
+from django.db import DatabaseError, transaction
+from django.utils import timezone
 
+from django_chatbot.dispatcher import Dispatcher
+from django_chatbot.models import PeriodicTask
 
-class ChatbotSettingsError(Exception):
-    pass
-
-
-DEFAULTS = {
-    "DEFAULT_TEST_CLIENT_BOT_NAME": None,
-    "BROKER_URL": getattr(user_settings, "CELERY_BROKER_URL", None),
-    "BOTS": [],
-    "LOAD_HANDLERS_CACHE_SIZE": None,
-    "GET_UPDATES_LIMIT": user_settings.DJANGO_CHATBOT.get("GET_UPDATES_LIMIT", 100),
-}
+log = logging.getLogger(__name__)
 
 
-class DjangoChatbotSettings(MutableMapping):
-    def __getitem__(self, key):
-        if key in user_settings.DJANGO_CHATBOT:
-            return user_settings.DJANGO_CHATBOT[key]
-        elif key in DEFAULTS:
-            return DEFAULTS[key]
-        else:
-            raise ChatbotSettingsError(f"Chatbot setting '{key}' not found.")
-
-    def __setitem__(self, key, value):
-        pass
-
-    def __delitem__(self, key):
-        pass
-
-    def __iter__(self):
-        pass
-
-    def __len__(self):
-        pass
-
-
-class Settings:
-    @property
-    def DJANGO_CHATBOT(self):
+def dispatch_bot_updates(bot):
+    task, _ = PeriodicTask.objects.get_or_create(bot=bot, name="pull_bot_updates")
+    if not task.enabled:
+        return
+    tasks = PeriodicTask.objects.filter(
+        bot=bot, name="pull_bot_updates"
+    ).select_for_update(nowait=True)
+    with transaction.atomic():
         try:
-            getattr(user_settings, "DJANGO_CHATBOT")
-        except AttributeError:
-            raise ChatbotSettingsError("DJANGO_CHATBOT settings not found")
-        return DjangoChatbotSettings()
-
-
-settings = Settings()
+            task = tasks.first()
+        except DatabaseError:
+            log.debug("Dispatching updates is already running", extra={"bot": bot})
+            return
+        dispatcher = Dispatcher(bot=bot)
+        for update in bot.get_updates():
+            log.debug(
+                "Dispatching new pulling updates", extra={"bot": bot, "update": update}
+            )
+            dispatcher.dispatch(update_data=update.to_dict(date_as_timestamp=True))
+        task.last_run = timezone.now()
+        task.save()

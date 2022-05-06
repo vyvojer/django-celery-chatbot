@@ -1,7 +1,7 @@
 # *****************************************************************************
 #  MIT License
 #
-#  Copyright (c) 2020 Alexey Londkevich <londkevich@gmail.com>
+#  Copyright (c) 2022 Alexey Londkevich <londkevich@gmail.com>
 #
 #  Permission is hereby granted, free of charge, to any person obtaining a copy
 #  of this software and associated documentation files (the "Software"),
@@ -21,3 +21,9 @@
 #  ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR
 #  THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 # *****************************************************************************
+from django.db.models import QuerySet
+
+
+class BotQuerySet(QuerySet):
+    def with_pulling_updates(self):
+        return self.filter(webhook_enabled=False)

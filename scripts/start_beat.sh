@@ -5,4 +5,4 @@
 
 export PYTHONPATH=.
 
-celery --workdir tests -A testproject.celery beat --scheduler django_celery_beat.schedulers:DatabaseScheduler --loglevel=info
+celery --workdir tests -A testproject.celery beat  --loglevel=info

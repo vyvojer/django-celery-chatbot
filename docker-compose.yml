@@ -33,6 +33,16 @@ services:
     env_file: *envs-app
     command: scripts/start_worker.sh
 
+  beat:
+    container_name: chatbot_beat
+    image: chatbot_app
+    volumes: *volumes--app
+    logging: *logging
+    depends_on:
+      - postgres
+    env_file: *envs-app
+    command: scripts/start_beat.sh
+
   postgres:
     image: postgres:13.4-alpine
     container_name: chatbot_postgres

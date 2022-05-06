@@ -26,9 +26,11 @@
 
 import logging
 
-from celery import Task, shared_task
+from celery import Task, group, shared_task
 
-from django_chatbot.services.dispatcher import Dispatcher
+from django_chatbot.dispatcher import Dispatcher
+from django_chatbot.models import Bot
+from django_chatbot.pulling import dispatch_bot_updates
 
 log = logging.getLogger(__name__)
 
@@ -59,3 +61,18 @@ def dispatch(self, update_data: dict, token_slug: str):
     )
     dispatcher = Dispatcher(token_slug=token_slug)
     dispatcher.dispatch(update_data=update_data)
+
+
+@shared_task(bind=True, ignore_result=True, base=LoggingTask)
+def pull_updates(self):
+    log.debug("Pulling updates")
+    group(
+        pull_bot_updates.s(bot.pk) for bot in Bot.objects.with_pulling_updates()
+    ).apply_async()
+
+
+@shared_task(bind=True, ignore_result=True, base=LoggingTask)
+def pull_bot_updates(self, bot_pk: int):
+    log.debug("Pulling updates for bot", extra={"bot_pk": bot_pk})
+    bot = Bot.objects.get(pk=bot_pk)
+    dispatch_bot_updates(bot=bot)
