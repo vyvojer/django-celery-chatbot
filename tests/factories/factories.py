@@ -46,6 +46,7 @@ class BotFactory(factory.django.DjangoModelFactory):
     name = factory.Sequence(lambda n: f"bot_{n}")
     token = factory.Sequence(lambda n: f"token_{n}")
     root_handlerconf = factory.LazyAttribute(lambda o: f"{o.name}.handler")
+    webhook_enabled = factory.Faker("boolean")
 
 
 class ChatFactory(factory.django.DjangoModelFactory):

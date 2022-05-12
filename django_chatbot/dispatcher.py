@@ -1,7 +1,7 @@
 # *****************************************************************************
 #  MIT License
 #
-#  Copyright (c) 2020 Alexey Londkevich <londkevich@gmail.com>
+#  Copyright (c) 2022 Alexey Londkevich <londkevich@gmail.com>
 #
 #  Permission is hereby granted, free of charge, to any person obtaining a copy
 #  of this software and associated documentation files (the "Software"),
@@ -22,6 +22,18 @@
 #  THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 # *****************************************************************************
 
+# *****************************************************************************
+#  MIT License
+#
+#
+#  Permission is hereby granted, free of charge, to any person obtaining a copy
+#  of this software and associated documentation files (the "Software"),
+#  to deal in the Software without restriction, including without limitation
+#  the rights to use, copy, modify, merge, publish, distribute, sublicense,
+#  and/or sell copies of the Software, and to permit persons to whom
+#  the Software is furnished to do so, subject to the following conditions:
+#
+#
 """ This module contains class dispatching incoming Telegram updates"""
 
 import importlib
@@ -82,10 +94,6 @@ class Dispatcher:
         the `handlers` variable. This should be a list of `Handler` instances.
         Then add the module name to bot 'ROOT_HANDLERCONF' setting.
 
-    Args:
-        update_data: The incoming update dictionary.
-        token_slug: The bot token slug.
-
     Attributes:
         bot (Bot): The bot model.
         update (Update): The update object.
@@ -93,8 +101,20 @@ class Dispatcher:
 
     """
 
-    def __init__(self, token_slug: str):
-        self.bot = Bot.objects.get(token_slug=token_slug)
+    def __init__(self, token_slug: str = None, bot: Bot = None):
+        """Initialize the dispatcher.
+
+        Args:
+            token_slug: The bot token slug. One of two `token_slug` or `bot`
+                is required.
+            bot: The bot instance. One of two `token_slug` or `bot` is required.
+        """
+        if bot:
+            self.bot = bot
+        elif token_slug:
+            self.bot = Bot.objects.get(token_slug=token_slug)
+        else:
+            raise ValueError("token_slug or bot is required")
         self.handlers = load_handlers()[self.bot.token_slug]
 
     def dispatch(self, update_data: dict):

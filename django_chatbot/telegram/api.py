@@ -162,6 +162,7 @@ class _Binder:
     method_name: str
     params: dict = None
     telegram_type: Type[TelegramType] = None
+    many: bool = False
 
     def __post_init__(self):
         self.url = f"{SERVER_URL}/bot{self.token}/{self.method_name}"
@@ -197,11 +198,13 @@ class _Binder:
                     "response_json": response.json(),
                 },
             )
-        result = self._parse_response(response, self.telegram_type)
+        result = self._parse_response(response, self.telegram_type, self.many)
         return result
 
     @staticmethod
-    def _parse_response(response: requests.Response, telegram_type: Type[TelegramType]):
+    def _parse_response(
+        response: requests.Response, telegram_type: Type[TelegramType], many: bool
+    ):
         """Parse response
 
         Args:
@@ -216,7 +219,7 @@ class _Binder:
         """
         if response.status_code == 200:
             response_result = response.json()
-            result = _Binder._get_result(response_result, telegram_type)
+            result = _Binder._get_result(response_result, telegram_type, many)
             return result
         else:
             response_json = response.json()
@@ -229,7 +232,9 @@ class _Binder:
             )
 
     @staticmethod
-    def _get_result(response_result: dict, telegram_type: Type[TelegramType]):
+    def _get_result(
+        response_result: dict, telegram_type: Type[TelegramType], many: bool
+    ):
         """Extract result from response dictionary
 
         Args:
@@ -246,7 +251,10 @@ class _Binder:
             if telegram_type is None or not issubclass(telegram_type, TelegramType):
                 return result
             else:
-                return telegram_type.from_dict(source=result)
+                if many:
+                    return [telegram_type.from_dict(source=item) for item in result]
+                else:
+                    return telegram_type.from_dict(source=result)
 
 
 class Api:
@@ -268,6 +276,7 @@ class Api:
         method_name: str,
         params: dict = None,
         telegram_type: Type[TelegramType] = None,
+        many: bool = False,
     ):
         """Make request to API and return casted response.
 
@@ -288,6 +297,7 @@ class Api:
             method_name=method_name,
             params=params,
             telegram_type=telegram_type,
+            many=many,
         )
         return binder.bind()
 
@@ -297,7 +307,7 @@ class Api:
         limit: int = None,
         timeout: int = None,
         allowed_updates: List[str] = None,
-    ) -> Update:
+    ) -> List[Update]:
         """
         Use this method to receive incoming updates using long polling (wiki).
         An Array of Update objects is returned.
@@ -340,7 +350,9 @@ class Api:
             "timeout": timeout,
             "allowed_updates": allowed_updates,
         }
-        return self._bind(method_name="getUpdates", params=params, telegram_type=Update)
+        return self._bind(
+            method_name="getUpdates", params=params, telegram_type=Update, many=True
+        )
 
     def set_webhook(
         self,

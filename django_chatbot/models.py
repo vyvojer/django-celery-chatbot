@@ -25,22 +25,21 @@
 """This module contains models representing some Telegram types"""
 
 import logging
-from typing import List, Optional
+from typing import Generator, List, Optional
 
 from django.db import models
-from django.dispatch import Signal
+from django.db.models import Q
 from django.urls import reverse
-from django.utils import timezone
 from django.utils.functional import cached_property
 from django.utils.text import slugify
 
+from django_chatbot import managers
 from django_chatbot.conf import settings
+from django_chatbot.querysets import BotQuerySet
 from django_chatbot.telegram import types
 from django_chatbot.telegram.api import Api, TelegramError
 
 logger = logging.getLogger(__name__)
-
-telegram_instance = Signal()
 
 
 class Bot(models.Model):
@@ -75,11 +74,14 @@ class Bot(models.Model):
     token_slug = models.SlugField(max_length=50, unique=True)
     root_handlerconf = models.CharField(max_length=100, default="")
     _me = models.JSONField(blank=True, null=True)
+    webhook_enabled = models.BooleanField(default=False)
     _webhook_info = models.JSONField(blank=True, null=True)
     update_successful = models.BooleanField(default=True)
-    me_update_datetime = models.DateTimeField(blank=True, null=True)
-    webhook_update_datetime = models.DateTimeField(blank=True, null=True)
     test_mode = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    objects = managers.BotManager.from_queryset(BotQuerySet)()
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -132,7 +134,6 @@ class Bot(models.Model):
         else:
             self._me = me.to_dict()
             self.update_successful = True
-            self.me_update_datetime = timezone.now()
             self.save()
             return self.me
 
@@ -154,8 +155,11 @@ class Bot(models.Model):
             raise error
         else:
             self._webhook_info = webhook_info.to_dict(date_as_timestamp=True)
+            if self.webhook_info.url:
+                self.webhook_enabled = True
+            else:
+                self.webhook_enabled = False
             self.update_successful = True
-            self.webhook_update_datetime = timezone.now()
             self.save()
             return self.webhook_info
 
@@ -201,32 +205,100 @@ class Bot(models.Model):
                 max_connections=max_connections,
                 allowed_updates=allowed_updates,
             )
-            self.update_successful = True
-            self.webhook_update_datetime = timezone.now()
-            self.save()
         except TelegramError as error:
             self.update_successful = False
             self.save()
+            logger.error("Error setting webhook", extra={"bot": self, "error": error})
             raise error
         else:
+            self.update_successful = True
+            self.webhook_enabled = True
+            self.save()
+            logger.info("Webhook set successfully.", extra={"bot": self})
             return result
+
+    def delete_webhook(
+        self,
+        drop_pending_updates: bool = False,
+    ) -> bool:
+        """Delete webhook on Telegram.
+
+        This method calls telegram ``deleteWebhook`` method.
+        https://core.telegram.org/bots/api#deletewebhook
+
+        Args:
+            drop_pending_updates: Pass True to drop all pending updates
+
+        Returns:
+            True if webhook was deleted successfully.
+
+        Raises:
+            TelegramError
+
+        """
+        try:
+            result = self.api.delete_webhook(drop_pending_updates=drop_pending_updates)
+        except TelegramError as error:
+            self.update_successful = False
+            self.save()
+            logger.error("Error deleting webhook", extra={"bot": self, "error": error})
+            raise error
+        else:
+            self.update_successful = True
+            self.webhook_enabled = False
+            self._webhook_info = None
+            self.save()
+            logger.info("Webhook deleted successfully.", extra={"bot": self})
+            return result
+
+    def get_updates(
+        self,
+        offset: int = None,
+    ) -> Optional[Generator[types.Update, None, None]]:
+        """Receive incoming updates.
+
+        This method calls telegram ``getUpdates`` method.
+        https://core.telegram.org/bots/api#getupdates
+
+        Args:
+            offset: Identifier of the first update to be returned. If None returns
+                updates starting from the last known update.
+
+        Returns:
+            Generator of updates or None if webhook is enabled.
+
+        Raises:
+            TelegramError
+
+        """
+        if self.webhook_enabled:
+            return None
+        try:
+            limit = settings.DJANGO_CHATBOT["GET_UPDATES_LIMIT"]
+            if offset is None:
+                latest_update = Update.objects.last_update(bot=self)
+                offset = latest_update.update_id + 1 if latest_update else 0
+            updates = self.api.get_updates(offset=offset, limit=limit)
+        except TelegramError as error:
+            logger.error(
+                "Error during getting updates",
+                extra={"bot": self, "offset": offset, "error": error},
+            )
+            raise error
+        else:
+            logger.debug(
+                "Updates was received successfully.",
+                extra={"bot": self, "offset": offset, "updates": updates},
+            )
+            for update in updates:
+                yield update
+            if updates and len(updates) == limit:
+                latest_update = updates[-1]
+                yield from self.get_updates(offset=latest_update.update_id + 1)
 
     def test_mode_on(self):
         self.test_mode = True
         self.save()
-
-
-class UserManager(models.Manager):
-    def from_telegram(self, telegram_user: types.User):
-        defaults = telegram_user.to_dict()
-        defaults.pop("id")
-        user, created = self.update_or_create(
-            user_id=telegram_user.id, defaults=defaults
-        )
-
-        telegram_instance.send(sender=self.model, created=created, instance=user)
-
-        return user
 
 
 class User(models.Model):
@@ -242,7 +314,7 @@ class User(models.Model):
     can_read_all_group_messages = models.BooleanField(default=False)
     supports_inline_queries = models.BooleanField(default=False)
 
-    objects = UserManager()
+    objects = managers.UserManager()
 
     def __str__(self):
         if self.username:
@@ -253,31 +325,6 @@ class User(models.Model):
     def chat(self, bot: Bot):
         chat_ = Chat.objects.filter(chat_id=self.user_id, bot=bot).first()
         return chat_
-
-
-class ChatManager(models.Manager):
-    def from_telegram(self, bot: Bot, telegram_chat: types.Chat):
-        """Create a model instance from a telegram type instance.
-
-        Args:
-            bot: The bot the chat belongs to.
-            telegram_chat:
-
-        Returns:
-            model instance.
-        """
-        defaults = telegram_chat.to_dict()
-        _update_defaults(telegram_chat, defaults, "photo")
-        _update_defaults(telegram_chat, defaults, "permissions")
-        _update_defaults(telegram_chat, defaults, "location")
-        defaults.pop("id")
-        chat, created = self.update_or_create(
-            chat_id=telegram_chat.id, bot=bot, defaults=defaults
-        )
-
-        telegram_instance.send(sender=self.model, created=created, instance=chat)
-
-        return chat
 
 
 class Chat(models.Model):
@@ -308,7 +355,7 @@ class Chat(models.Model):
     linked_chat_id = models.BigIntegerField(null=True, blank=True)
     _location = models.JSONField(blank=True, null=True)
 
-    objects = ChatManager()
+    objects = managers.ChatManager()
 
     class Meta:
         unique_together = (("bot", "chat_id"),)
@@ -354,22 +401,6 @@ class Chat(models.Model):
         return message
 
 
-class FormManager(models.Manager):
-    def get_form(self, update: "Update"):
-        if message := update.message:
-            try:
-                previous = message.get_previous_by_date(chat_id=message.chat_id)
-            except Message.DoesNotExist:
-                return None
-            else:
-                if previous.form and not previous.form.is_finished:
-                    return previous.form
-        elif callback_query := update.callback_query:
-            if callback_query.form and not callback_query.form.is_finished:
-                return callback_query.form
-        return None
-
-
 class Form(models.Model):
     module_name = models.CharField(max_length=255)
     class_name = models.CharField(max_length=255)
@@ -380,7 +411,7 @@ class Form(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     handler = models.CharField(max_length=255)
 
-    objects = FormManager()
+    objects = managers.FormManager()
 
     def __str__(self):
         return f"{self.module_name}.{self.class_name}"
@@ -396,99 +427,6 @@ class Field(models.Model):
 
     def __str__(self):
         return f"{self.name}"
-
-
-class MessageManager(models.Manager):
-    def from_telegram(self, bot: Bot, telegram_message: types.Message, direction: str):
-        """Create a model instance from a telegram type instance.
-
-        Args:
-            bot: The bot the message belongs to.
-            telegram_message: The telegram Message.
-            direction: The message direction. Either Message.DIRECTION_IN or
-                Either Message.DIRECTION_OUT for incoming/outgoing message.
-
-        Returns:
-            model instance.
-
-        """
-        defaults = telegram_message.to_dict()
-        defaults["direction"] = direction
-        _update_defaults(telegram_message, defaults, "entities")
-        _update_defaults(telegram_message, defaults, "animation")
-        _update_defaults(telegram_message, defaults, "audio")
-        _update_defaults(telegram_message, defaults, "document")
-        _update_defaults(telegram_message, defaults, "photo")
-        _update_defaults(telegram_message, defaults, "sticker")
-        _update_defaults(telegram_message, defaults, "video")
-        _update_defaults(telegram_message, defaults, "video_note")
-        _update_defaults(telegram_message, defaults, "voice")
-        _update_defaults(telegram_message, defaults, "caption_entities")
-        _update_defaults(telegram_message, defaults, "contact")
-        _update_defaults(telegram_message, defaults, "dice")
-        _update_defaults(telegram_message, defaults, "game")
-        _update_defaults(telegram_message, defaults, "poll")
-        _update_defaults(telegram_message, defaults, "venue")
-        _update_defaults(telegram_message, defaults, "location")
-        _update_defaults(telegram_message, defaults, "new_chat_photo")
-        _update_defaults(telegram_message, defaults, "invoice")
-        _update_defaults(telegram_message, defaults, "successful_payment")
-        _update_defaults(telegram_message, defaults, "passport_data")
-        _update_defaults(telegram_message, defaults, "proximity_alert_triggered")
-        _update_defaults(telegram_message, defaults, "reply_markup")
-
-        chat = Chat.objects.from_telegram(bot=bot, telegram_chat=telegram_message.chat)
-        defaults["chat"] = chat
-        if telegram_message.from_user:
-            user = User.objects.from_telegram(telegram_message.from_user)
-            defaults["from_user"] = user
-        if telegram_message.reply_to_message:
-            defaults["reply_to_message"] = self.get_message(
-                telegram_message.reply_to_message
-            )
-        if telegram_message.left_chat_member:
-            user = User.objects.from_telegram(telegram_message.left_chat_member)
-            defaults["left_chat_member"] = user
-        if telegram_message.new_chat_members:
-            defaults.pop("new_chat_members")
-        if telegram_message.sender_chat:
-            sender_chat = Chat.objects.from_telegram(
-                bot=bot, telegram_chat=telegram_message.sender_chat
-            )
-            defaults["sender_chat"] = sender_chat
-        defaults.pop("message_id")
-        message, created = self.update_or_create(
-            message_id=telegram_message.message_id, defaults=defaults
-        )
-
-        telegram_instance.send(sender=self.model, created=created, instance=message)
-
-        logger.debug(
-            "Message record created/updated",
-            extra={
-                "message_id": telegram_message.message_id,
-                "message_created": created,
-                "defaults": defaults,
-            },
-        )
-        if created and telegram_message.new_chat_members:
-            members = [
-                User.objects.from_telegram(telegram_user)
-                for telegram_user in telegram_message.new_chat_members
-            ]
-            for member in members:
-                message.new_chat_members.add(member)
-        return message
-
-    def get_message(self, telegram_message: types.Message):
-        try:
-            message = self.get(
-                message_id=telegram_message.message_id,
-                chat__chat_id=telegram_message.chat.id,
-            )
-        except Message.DoesNotExist:
-            message = None
-        return message
 
 
 class Message(models.Model):
@@ -605,7 +543,7 @@ class Message(models.Model):
     extra = models.JSONField(default=dict)
     form = models.ForeignKey(Form, blank=True, null=True, on_delete=models.SET_NULL)
 
-    objects = MessageManager()
+    objects = managers.MessageManager()
 
     class Meta:
         ordering = ["message_id", "chat"]
@@ -777,41 +715,6 @@ class Message(models.Model):
         return message
 
 
-class CallbackQueryManager(models.Manager):
-    def from_telegram(self, bot: Bot, telegram_callback_query: types.CallbackQuery):
-        """Create a model instance from a telegram type instance.
-
-        Args:
-            bot: The bot the callback query belongs to.
-            telegram_callback_query: The telegram CallbackQuery.
-
-        Returns:
-            model instance.
-
-        """
-        defaults = telegram_callback_query.to_dict()
-        defaults.pop("id")
-        user = User.objects.from_telegram(telegram_callback_query.from_user)
-        defaults["from_user"] = user
-        defaults["bot"] = bot
-        if telegram_callback_query.message:
-            message = Message.objects.from_telegram(
-                bot=bot,
-                telegram_message=telegram_callback_query.message,
-                direction=Message.DIRECTION_OUT,
-            )
-            defaults["message"] = message
-        callback_query, created = self.update_or_create(
-            callback_query_id=telegram_callback_query.id, defaults=defaults
-        )
-
-        telegram_instance.send(
-            sender=self.model, created=created, instance=callback_query
-        )
-
-        return callback_query
-
-
 class CallbackQuery(models.Model):
     """Persistent class for telegram ``CallbackQuery``"""
 
@@ -826,7 +729,7 @@ class CallbackQuery(models.Model):
     data = models.CharField(max_length=100, blank=True)
     game_short_name = models.CharField(max_length=100, blank=True)
 
-    objects = CallbackQueryManager()
+    objects = managers.CallbackQueryManager()
 
     class Meta:
         ordering = ["callback_query_id"]
@@ -865,64 +768,6 @@ class CallbackQuery(models.Model):
         self.message.save()
 
 
-class UpdateManager(models.Manager):
-    @staticmethod
-    def _message_type(telegram_update: types.Update) -> str:
-        if telegram_update.message:
-            return Update.TYPE_MESSAGE
-        elif telegram_update.edited_message:
-            return Update.TYPE_EDITED_MESSAGE
-        elif telegram_update.channel_post:
-            return Update.TYPE_CHANNEL_POST
-        elif telegram_update.edited_channel_post:
-            return Update.TYPE_EDITED_CHANNEL_POST
-        elif telegram_update.callback_query:
-            return Update.TYPE_CALLBACK_QUERY
-
-    def from_telegram(self, bot: Bot, telegram_update: types.Update):
-        """Create a model instance from a telegram type instance.
-
-        Args:
-            bot: The bot the chat belongs to.
-            telegram_update: Telegram Update.
-
-        Returns:
-            model instance.
-
-        """
-        defaults = telegram_update.to_dict()
-        defaults.pop("update_id")
-        defaults["bot"] = bot
-        telegram_message = None
-        if telegram_update.message:
-            telegram_message = telegram_update.message
-        if telegram_update.edited_message:
-            telegram_message = telegram_update.edited_message
-            defaults.pop("edited_message")
-        if telegram_update.channel_post:
-            telegram_message = telegram_update.channel_post
-            defaults.pop("channel_post")
-        if telegram_update.edited_channel_post:
-            telegram_message = telegram_update.edited_channel_post
-            defaults.pop("edited_channel_post")
-        if telegram_message is not None:
-            defaults["message"] = Message.objects.from_telegram(
-                bot, telegram_message, direction=Message.DIRECTION_IN
-            )
-        if telegram_callback_query := telegram_update.callback_query:
-            defaults["callback_query"] = CallbackQuery.objects.from_telegram(
-                bot, telegram_callback_query
-            )
-        defaults["type"] = self._message_type(telegram_update)
-        update, created = self.update_or_create(
-            update_id=telegram_update.update_id, defaults=defaults
-        )
-
-        telegram_instance.send(sender=self.model, created=created, instance=update)
-
-        return update
-
-
 class Update(models.Model):
     """Persistent class for telegram ``Update``"""
 
@@ -953,10 +798,10 @@ class Update(models.Model):
         on_delete=models.CASCADE,
     )
 
-    objects = UpdateManager()
+    objects = managers.UpdateManager()
 
     class Meta:
-        ordering = ["message_id"]
+        ordering = ["update_id"]
 
     def __str__(self):
         return f"{self.update_id}"
@@ -985,3 +830,21 @@ def _update_defaults(telegram_object: object, defaults: dict, attr: str):
     if getattr(telegram_object, attr):
         defaults[f"_{attr}"] = defaults[attr]
         defaults.pop(attr)
+
+
+class PeriodicTask(models.Model):
+    bot = models.ForeignKey(Bot, on_delete=models.CASCADE)
+    name = models.CharField(max_length=100)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+    enabled = models.BooleanField(default=True)
+    last_run = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["bot", "name"],
+                condition=Q(user__isnull=True),
+                name="unique_periodic_task_name",
+            ),
+        ]

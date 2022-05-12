@@ -33,9 +33,10 @@ class BotAdmin(admin.ModelAdmin):
     list_display = [
         "id",
         "name",
+        "webhook_enabled",
         "update_successful",
-        "me_update_datetime",
-        "webhook_update_datetime",
+        "created_at",
+        "updated_at",
     ]
 
 
@@ -112,3 +113,15 @@ class FormAdmin(admin.ModelAdmin):
         "current_field",
     ]
     inlines = [FieldInline]
+
+
+@admin.register(models.PeriodicTask)
+class PeriodicTaskAdmin(admin.ModelAdmin):
+    list_display = [
+        "bot",
+        "name",
+        "user",
+        "enabled",
+        "last_run",
+    ]
+    list_filter = ["bot", "enabled"]
