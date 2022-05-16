@@ -1,7 +1,5 @@
 celery==5.2.6
 dacite==1.6.0
 Django==3.2.13
-psycopg2-binary==2.9.3
-redis==4.2.2
 requests==2.27.1
 

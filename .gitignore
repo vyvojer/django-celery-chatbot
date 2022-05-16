@@ -4,3 +4,4 @@ __pycache__
 .env
 *.log
 /tests/celerybeat-schedule
+django_celery_chatbot.egg-info

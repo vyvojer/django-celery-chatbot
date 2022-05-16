@@ -6,3 +6,4 @@
 Dockerfile
 docker-compose.yml
 /tests/celerybeat-schedule
+django_celery_chatbot.egg-info
