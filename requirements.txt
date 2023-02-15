@@ -1,5 +1,5 @@
 celery==5.2.6
 dacite==1.6.0
-Django==3.2.13
+Django==3.2.18
 requests==2.27.1
 
